@@ -14,7 +14,17 @@ st.set_page_config(
 )
 
 # ==================================================
-# CSS (TAILWIND-INSPIRED & GLASSMORPHISM THEME)
+# SESSION STATE INITIALIZATION
+# ==================================================
+if 'app_state' not in st.session_state:
+    st.session_state.app_state = 'upload' 
+if 'summary_df' not in st.session_state:
+    st.session_state.summary_df = None
+if 'all_df' not in st.session_state:
+    st.session_state.all_df = None
+
+# ==================================================
+# CSS GLOBAL (สำหรับหน้า Dashboard)
 # ==================================================
 st.markdown("""
 <style>
@@ -75,7 +85,7 @@ html, body, [class*="css"]  {
 .category-value { font-size: 15px; margin-bottom: 8px; color: #475569; font-weight: 500;}
 .category-note { color: #0EA5E9; margin-top: 16px; font-size: 13px; border-top: 1px solid #F1F5F9; padding-top: 12px; font-weight: 500;}
 
-/* Table Headers (อัปเดตสีตามที่กำหนดเป๊ะๆ) */
+/* Table Headers */
 .table-header-done { color: #0BFF8D; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #0BFF8D; padding-bottom: 8px;}
 .table-header-prog { color: #D58A19; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #D58A19; padding-bottom: 8px;}
 .table-header-not  { color: #F43F5E; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #F43F5E; padding-bottom: 8px;}
@@ -97,7 +107,8 @@ h1, h2, h3, h4, h5, h6 { color: #0F172A !important; font-weight: 700 !important;
 # ==================================================
 THAI_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
 
-@st.cache_data
+# 📌 เพิ่ม show_spinner=False เพื่อซ่อนกล่องข้อความมุมขวาบนตอนโหลด Cache
+@st.cache_data(show_spinner=False)
 def get_all_excel_data(uploaded_file):
     wb = openpyxl.load_workbook(uploaded_file, data_only=True)
     all_data = []
@@ -213,7 +224,8 @@ def get_all_excel_data(uploaded_file):
 
     return df_combined
 
-@st.cache_data
+# 📌 เพิ่ม show_spinner=False เพื่อซ่อนกล่องข้อความมุมขวาบนตอนโหลด Cache
+@st.cache_data(show_spinner=False)
 def read_summary_sheet(uploaded_file):
     wb = openpyxl.load_workbook(uploaded_file, data_only=True)
     if "สรุป" not in wb.sheetnames: return pd.DataFrame()
@@ -294,13 +306,11 @@ def create_pea_chart(summary_df):
 
     fig = go.Figure()
     
-    # แท่งงานทั้งหมด
     fig.add_bar(
         x=wrapped_x, y=summary_df["จำนวนงาน"], name="จำนวนงานทั้งหมด", 
         marker_color="#3730A3", text=summary_df["จำนวนงาน"], textposition="outside", cliponaxis=False,
         marker_line_width=0
     )
-    # แท่งงานที่เสร็จแล้ว (คุมสี #0BFF8D)
     fig.add_bar(
         x=wrapped_x, y=summary_df["งานแล้วเสร็จ"], name="งานแล้วเสร็จ", 
         marker_color="#0BFF8D", text=summary_df["งานแล้วเสร็จ"], textposition="outside", cliponaxis=False,
@@ -321,85 +331,181 @@ def create_pea_chart(summary_df):
     st.plotly_chart(fig, use_container_width=True)
 
 # ==================================================
-# MAIN APP
+# PAGE 1: LIQUID GLASS UPLOAD PAGE (เฉพาะหน้าแรก)
 # ==================================================
-uploaded_file = st.file_uploader("📂 อัปโหลดไฟล์ Excel แผนดำเนินการ (ระบบจะอ่านรวมอัตโนมัติ)", type=["xlsx", "xls"])
-
-if uploaded_file:
-    with st.spinner('กำลังประมวลผลข้อมูลและตรวจสอบความถูกต้อง...'):
-        summary_df = read_summary_sheet(uploaded_file)
-        all_df = get_all_excel_data(uploaded_file)
+if st.session_state.app_state == 'upload':
+    st.markdown("""
+        <style>
+        /* ซ่อน Sidebar ทั้งหมดในหน้านี้ */
+        [data-testid="collapsedControl"], [data-testid="stSidebar"] { display: none !important; }
         
-    if summary_df.empty:
-        st.error("❌ ไม่สามารถดึงข้อมูลได้ กรุณาตรวจสอบว่ามีชีต 'สรุป' และคอลัมน์ถูกต้อง")
-        st.stop()
+        /* 🎨 Animated Pastel Gradient Background (วิ่งเปลี่ยนสีไปเรื่อยๆ) */
+        @keyframes liquidGradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        [data-testid="stAppViewContainer"] {
+            background: linear-gradient(-45deg, #FF9A9E, #FECFEF, #A1C4FD, #E0C3FC) !important;
+            background-size: 400% 400% !important;
+            animation: liquidGradient 12s ease infinite !important;
+        }
 
-    if all_df.empty:
-        st.warning("❌ ไม่พบข้อมูลรายละเอียดโครงการในชีตอื่นๆ กรุณาตรวจสอบฟอร์แมตตาราง")
-        st.stop()
+        /* 💧 Liquid Glass Design สำหรับ Header Text */
+        .liquid-header-box {
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            border-right: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 30px;
+            padding: 40px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .upload-title {
+            color: #4A4A4A;
+            font-size: 42px;
+            font-weight: 800;
+            margin-bottom: 10px;
+            text-shadow: 1px 1px 3px rgba(255,255,255,0.7);
+        }
+        
+        .upload-subtitle {
+            color: #4A4A4A;
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        /* 💧 Liquid Glass Design สำหรับกล่อง Uploader */
+        [data-testid="stFileUploader"] {
+            background: rgba(255, 255, 255, 0.45) !important;
+            backdrop-filter: blur(20px) !important;
+            -webkit-backdrop-filter: blur(20px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.8) !important;
+            border-radius: 24px !important;
+            padding: 30px !important;
+            box-shadow: 0 8px 32px 0 rgba(100, 100, 100, 0.1) !important;
+        }
+        
+        [data-testid="stFileUploadDropzone"] {
+            background: rgba(255, 255, 255, 0.5) !important;
+            border: 2px dashed rgba(255, 255, 255, 0.8) !important;
+            border-radius: 16px !important;
+        }
+        [data-testid="stFileUploadDropzone"]:hover {
+            background: rgba(255, 255, 255, 0.8) !important;
+            border-color: #FFFFFF !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("""
+        <div class="liquid-header-box">
+            <div class="upload-title">📊 PEA Executive Dashboard</div>
+            <div class="upload-subtitle">ระบบรายงานสรุปผลการดำเนินงานแบบเรียลไทม์</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        uploaded_file = st.file_uploader("📂 กรุณาอัปโหลดไฟล์ Excel เพื่อเริ่มต้นใช้งาน", type=["xlsx", "xls"])
+
+        if uploaded_file:
+            with st.spinner('กำลังประมวลผลข้อมูลและตรวจสอบความถูกต้อง...'):
+                summary_df = read_summary_sheet(uploaded_file)
+                all_df = get_all_excel_data(uploaded_file)
+                
+            if summary_df.empty:
+                st.error("❌ ไม่สามารถดึงข้อมูลได้ กรุณาตรวจสอบว่ามีชีต 'สรุป' และคอลัมน์ถูกต้อง")
+            elif all_df.empty:
+                st.warning("❌ ไม่พบข้อมูลรายละเอียดโครงการในชีตอื่นๆ กรุณาตรวจสอบฟอร์แมตตาราง")
+            else:
+                st.session_state.summary_df = summary_df
+                st.session_state.all_df = all_df
+                st.session_state.app_state = 'dashboard'
+                st.rerun()
+
+# ==================================================
+# PAGE 2 & 3: DASHBOARD PAGE
+# ==================================================
+elif st.session_state.app_state == 'dashboard':
+    summary_df = st.session_state.summary_df
+    all_df = st.session_state.all_df
 
     # ---------------------------------------------
     # SIDEBAR
     # ---------------------------------------------
+    st.sidebar.markdown("### ⚙️ การจัดการข้อมูล")
+    if st.sidebar.button("⬅️ อัปโหลดไฟล์ใหม่", use_container_width=True):
+        st.session_state.app_state = 'upload'
+        st.session_state.summary_df = None
+        st.session_state.all_df = None
+        st.rerun()
+        
+    st.sidebar.markdown("---")
     st.sidebar.markdown("### 🔎 เจาะลึกรายละเอียดงาน")
     st.sidebar.caption("ระบบรวบรวมข้อมูลจากทุกชีตอัตโนมัติ")
     
     main_projects = summary_df["โครงการ"].dropna().astype(str).unique().tolist()
     main_projects = [p for p in main_projects if p.strip() and p.lower() != "nan"]
-    main_projects.insert(0, "-- กรุณาเลือกหมวดงาน --")
+    main_projects.insert(0, "-- ภาพรวมทั้งหมด --")
     
     selected_main_proj = st.sidebar.selectbox("📌 เลือกหมวดงาน (ค้นหาข้ามชีต):", main_projects)
 
-    # ==================================================
-    # HEADER & OVERVIEW
-    # ==================================================
-    st.markdown("""
-    <div class="pea-header">
-        <div class="pea-title">Executive Dashboard</div>
-        <div class="pea-subtitle">รายงานสรุปผลการดำเนินงานแบบเรียลไทม์ (ภาพรวมทั่วประเทศ)</div>
-    </div>
-    """, unsafe_allow_html=True)
+    # ---------------------------------------------
+    # RENDER OVERVIEW (หน้าที่ 2)
+    # ---------------------------------------------
+    if selected_main_proj == "-- ภาพรวมทั้งหมด --":
+        st.markdown("""
+        <div class="pea-header">
+            <div class="pea-title">Executive Dashboard</div>
+            <div class="pea-subtitle">รายงานสรุปผลการดำเนินงานแบบเรียลไทม์ (ภาพรวมทั่วประเทศ)</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    total_all = summary_df["จำนวนงาน"].sum()
-    done_all = summary_df["งานแล้วเสร็จ"].sum()
-    
-    budget_series = all_df["วงเงิน"].astype(str).str.replace(',', '').str.replace(' ', '')
-    budget_sum = pd.to_numeric(budget_series, errors='coerce').fillna(0).sum()
-
-    # 📌 KPI Cards 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(f'''
-        <div class="glass-card">
-            <div class="kpi-title">📌 ปริมาณงานทั้งหมด</div>
-            <div class="kpi-value" style="color: #3730A3;">{total_all:,} <span style="font-size:16px; color:#94A3B8;">งาน</span></div>
-        </div>''', unsafe_allow_html=True)
-    with col2:
-        st.markdown(f'''
-        <div class="glass-card">
-            <div class="kpi-title">✅ งานแล้วเสร็จ</div>
-            <div class="kpi-value" style="color: #0BFF8D;">{done_all:,} <span style="font-size:16px; color:#94A3B8;">งาน</span></div>
-        </div>''', unsafe_allow_html=True)
-    with col3:
-        st.markdown(f'''
-        <div class="glass-card">
-            <div class="kpi-title">💰 วงเงินก่อสร้างรวม</div>
-            <div class="kpi-value" style="color: #D97706;">{budget_sum:,.0f} <span style="font-size:16px; color:#94A3B8;">บาท</span></div>
-        </div>''', unsafe_allow_html=True)
-
-    # Main Chart
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    create_pea_chart(summary_df)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    create_category_cards(summary_df)
-    st.markdown("---")
-
-    # ==================================================
-    # DRILL-DOWN SECTION 
-    # ==================================================
-    if selected_main_proj != "-- กรุณาเลือกหมวดงาน --":
+        total_all = summary_df["จำนวนงาน"].sum()
+        done_all = summary_df["งานแล้วเสร็จ"].sum()
         
+        budget_series = all_df["วงเงิน"].astype(str).str.replace(',', '').str.replace(' ', '')
+        budget_sum = pd.to_numeric(budget_series, errors='coerce').fillna(0).sum()
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(f'''
+            <div class="glass-card">
+                <div class="kpi-title">📌 ปริมาณงานทั้งหมด</div>
+                <div class="kpi-value" style="color: #3730A3;">{total_all:,} <span style="font-size:16px; color:#94A3B8;">งาน</span></div>
+            </div>''', unsafe_allow_html=True)
+        with col2:
+            st.markdown(f'''
+            <div class="glass-card">
+                <div class="kpi-title">✅ งานแล้วเสร็จ</div>
+                <div class="kpi-value" style="color: #0BFF8D;">{done_all:,} <span style="font-size:16px; color:#94A3B8;">งาน</span></div>
+            </div>''', unsafe_allow_html=True)
+        with col3:
+            st.markdown(f'''
+            <div class="glass-card">
+                <div class="kpi-title">💰 วงเงินก่อสร้างรวม</div>
+                <div class="kpi-value" style="color: #D97706;">{budget_sum:,.0f} <span style="font-size:16px; color:#94A3B8;">บาท</span></div>
+            </div>''', unsafe_allow_html=True)
+
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        create_pea_chart(summary_df)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        create_category_cards(summary_df)
+
+    # ---------------------------------------------
+    # RENDER DRILL-DOWN (หน้าที่ 3)
+    # ---------------------------------------------
+    else:
         st.markdown(f"## 🔎 เจาะลึกรายละเอียดงาน: <span style='color:#3730A3;'>{selected_main_proj}</span>", unsafe_allow_html=True)
         
         search_term = str(selected_main_proj).strip().upper()
@@ -413,7 +519,6 @@ if uploaded_file:
             pie_data = detail_df["สถานะ"].value_counts().reset_index()
             pie_data.columns = ["Status", "Count"]
 
-            # โทนสีสถานะตามที่กำหนด
             color_map = {
                 "✅ แล้วเสร็จ": "#0BFF8D",            
                 "⏳ อยู่ระหว่างดำเนินการ": "#D58A19", 
@@ -455,8 +560,8 @@ if uploaded_file:
                 fig_pie = go.Figure(data=[go.Pie(
                     labels=pie_data["Status"],
                     values=pie_data["Count"],
-                    hole=0.55, # วงกลมบางลง ดู Modern ขึ้น
-                    marker=dict(colors=colors, line=dict(color='#FFFFFF', width=2)), # เพิ่มเส้นขอบสีขาวตัดกราฟ
+                    hole=0.55, 
+                    marker=dict(colors=colors, line=dict(color='#FFFFFF', width=2)), 
                     textinfo='label+percent+value',
                     textposition='outside', 
                     hoverinfo='label+value'
