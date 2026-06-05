@@ -9,11 +9,12 @@ import textwrap
 # ==================================================
 st.set_page_config(
     page_title="PEA Executive Dashboard",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 # ==================================================
-# CSS (CUSTOM COLOR THEME)
+# CSS (PREMIUM LIGHT TECH THEME)
 # ==================================================
 st.markdown("""
 <style>
@@ -23,76 +24,92 @@ html, body, [class*="css"]  {
     font-family: 'Sarabun', sans-serif;
 }
 
-/* พื้นหลังหลักใช้สี #F5DEB3 (Wheat) */
-.main { background-color: #F5DEB3; }
+/* พื้นหลังหลักสว่างตา (Soft Slate) ไม่ขาวจ้าจนเกินไป */
+[data-testid="stAppViewContainer"] {
+    background-color: #F8FAFC;
+    color: #1E293B;
+}
+[data-testid="stHeader"] {
+    background-color: transparent;
+}
 .block-container { padding-top: 2rem; padding-bottom: 2rem; }
 
-/* HEADER: ไล่ระดับสี #483D8B -> #660099 -> #5F9EA0 */
+/* HEADER: ไล่สีโทน Indigo -> Teal แบบ Tech Startup (สีเข้มตัดกับพื้นหลังขาว) */
 .pea-header {
-    background: linear-gradient(135deg, #483D8B, #660099, #5F9EA0); 
+    background: linear-gradient(135deg, #1E3A8A, #312E81, #0F766E); 
     color: white;
     padding: 30px;
     border-radius: 16px;
     margin-bottom: 30px;
-    box-shadow: 0 10px 30px rgba(72, 61, 139, 0.2);
+    box-shadow: 0 10px 25px rgba(30, 58, 138, 0.15);
+    border-left: 5px solid #38BDF8;
 }
-.pea-title { font-size: 34px; font-weight: 700; margin-bottom: 8px;}
-.pea-subtitle { font-size: 16px; font-weight: 300; opacity: 0.9; letter-spacing: 0.5px;}
+.pea-title { font-size: 34px; font-weight: 700; margin-bottom: 8px; color: #FFFFFF;}
+.pea-subtitle { font-size: 16px; font-weight: 400; color: #E2E8F0; letter-spacing: 0.5px;}
 
 /* KPI Cards */
 .kpi-card {
-    background: white;
+    background: #FFFFFF; 
     border-radius: 16px;
     padding: 24px;
     margin-bottom: 20px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-    border: 1px solid #EBEBEB;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    border: 1px solid #E2E8F0;
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
 .kpi-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(102, 0, 153, 0.15);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    border-color: #CBD5E1;
 }
-.kpi-title { font-size: 16px; color: #483D8B; margin-bottom: 5px; font-weight: 600;}
-.kpi-value { font-size: 32px; font-weight: 700; }
+.kpi-title { font-size: 16px; color: #64748B; margin-bottom: 5px; font-weight: 500;}
+.kpi-value { font-size: 32px; font-weight: 700; color: #0F172A; }
 
 /* Category Cards */
 .category-card {
-    background: white;
+    background: #FFFFFF;
     border-radius: 16px;
     padding: 24px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
     margin-bottom: 20px;
     min-height: 200px;
-    border: 1px solid #EBEBEB;
+    border: 1px solid #E2E8F0;
     transition: transform 0.2s ease;
 }
 .category-card:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(102, 0, 153, 0.15);
-    border-color: #660099;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    border-color: #CBD5E1;
 }
-.category-number { color: #660099; font-size: 24px; font-weight: 700; opacity: 0.6;}
-.category-title { font-size: 18px; font-weight: 700; margin: 10px 0; color: #483D8B; line-height: 1.4;}
-.category-value { font-size: 15px; margin-bottom: 6px; color: #555;}
-.category-note { color: #5F9EA0; margin-top: 12px; font-size: 13px; border-top: 1px dashed #EEE; padding-top: 10px; font-weight: 500;}
+.category-number { color: #4F46E5; font-size: 24px; font-weight: 700; opacity: 0.8;}
+.category-title { font-size: 18px; font-weight: 700; margin: 10px 0; color: #0F172A; line-height: 1.4;}
+.category-value { font-size: 15px; margin-bottom: 6px; color: #334155;}
+.category-note { color: #0284C7; margin-top: 12px; font-size: 13px; border-top: 1px dashed #CBD5E1; padding-top: 10px; font-weight: 500;}
 
 /* Table Section Headers */
-.table-header-done { color: MediumSeaGreen; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid MediumSeaGreen; padding-bottom: 8px;}
-.table-header-prog { color: #5F9EA0; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #5F9EA0; padding-bottom: 8px;}
-.table-header-not  { color: #660099; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #660099; padding-bottom: 8px;}
+.table-header-done { color: #10B981; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #10B981; padding-bottom: 8px;}
+.table-header-prog { color: #F59E0B; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #F59E0B; padding-bottom: 8px;}
+.table-header-not  { color: #EF4444; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #EF4444; padding-bottom: 8px;}
 
 /* Sub-KPI (Drilldown) */
 .sub-kpi {
-    background: white;
+    background: #FFFFFF;
     padding: 20px 24px;
     border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     margin-bottom: 20px;
-    border: 1px solid #F0F0F0;
+    border: 1px solid #E2E8F0;
 }
-.sub-kpi-title { font-size: 14px; color: #483D8B; margin: 0; font-weight: 600;}
-.sub-kpi-val { font-size: 26px; font-weight: 700; margin: 5px 0 0 0; }
+.sub-kpi-title { font-size: 14px; color: #64748B; margin: 0; font-weight: 500;}
+.sub-kpi-val { font-size: 26px; font-weight: 700; color: #0F172A; margin: 5px 0 0 0; }
+
+/* Custom Markdown Text globally */
+p, li, span, div {
+    color: #334155; /* เทาเข้ม อ่านง่ายสบายตา */
+}
+h1, h2, h3, h4, h5, h6 {
+    color: #0F172A !important; /* ดำอมน้ำเงิน ดูพรีเมียม */
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -150,7 +167,6 @@ def get_all_excel_data(uploaded_file):
         current_project = ""
 
         for r in range(header_row + 1, ws.max_row + 1):
-            
             has_data = False
             for c in range(1, ws.max_column + 1):
                 v = ws.cell(r, c).value
@@ -276,8 +292,8 @@ def create_category_cards(summary_df):
                 <div class="category-number">[{i+1}]</div>
                 <div class="category-title">📁 {row["โครงการ"]}</div>
                 <div class="category-value"><b>{row["จำนวนงาน"]}</b> งานทั้งหมด</div>
-                <div class="category-value"><span style="color:MediumSeaGreen; font-weight:600;">✅ เสร็จ {row["งานแล้วเสร็จ"]} งาน</span></div>
-                <div class="category-value"><span style="color:#5F9EA0; font-weight:600;">⏳ คงเหลือ {row["งานรอดำเนินการ"]} งาน</span></div>
+                <div class="category-value"><span style="color:#10B981; font-weight:600;">✅ เสร็จ {row["งานแล้วเสร็จ"]} งาน</span></div>
+                <div class="category-value"><span style="color:#F59E0B; font-weight:600;">⏳ คงเหลือ {row["งานรอดำเนินการ"]} งาน</span></div>
                 <div class="category-note">{note}</div>
             </div>
             """, unsafe_allow_html=True)
@@ -301,23 +317,23 @@ def create_pea_chart(summary_df):
     
     fig.add_bar(
         x=wrapped_x, y=summary_df["จำนวนงาน"], name="จำนวนงานทั้งหมด", 
-        marker_color="#483D8B", text=summary_df["จำนวนงาน"], textposition="outside", cliponaxis=False
+        marker_color="#4F46E5", text=summary_df["จำนวนงาน"], textposition="outside", cliponaxis=False
     )
     fig.add_bar(
         x=wrapped_x, y=summary_df["งานแล้วเสร็จ"], name="งานแล้วเสร็จ", 
-        marker_color="MediumSeaGreen", text=summary_df["งานแล้วเสร็จ"], textposition="outside", cliponaxis=False
+        marker_color="#10B981", text=summary_df["งานแล้วเสร็จ"], textposition="outside", cliponaxis=False
     )
 
     fig.update_layout(
         barmode="group", 
         height=550, 
-        paper_bgcolor="rgba(0,0,0,0)", # พื้นหลังโปร่งใสเพื่อให้กลืนกับ #F5DEB3
-        plot_bgcolor="rgba(255,255,255,0.6)", # พื้นหลังกราฟสีขาวขุ่น
-        font=dict(family="Sarabun, sans-serif", size=14, color="#483D8B"),
-        legend=dict(orientation="h", y=1.12, font=dict(size=14)), 
+        paper_bgcolor="rgba(0,0,0,0)", 
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Sarabun, sans-serif", size=14, color="#1E293B"),
+        legend=dict(orientation="h", y=1.12, font=dict(size=14, color="#1E293B")), 
         margin=dict(l=20, r=20, t=40, b=80), 
         xaxis=dict(showgrid=False, tickangle=0), 
-        yaxis=dict(showgrid=True, gridcolor="#EBEBEB")
+        yaxis=dict(showgrid=True, gridcolor="#E2E8F0")
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -369,11 +385,11 @@ if uploaded_file:
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">📌 ปริมาณงานทั้งหมด (ทุกชีต)</div><div class="kpi-value" style="color:#483D8B;">{total_all:,}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">📌 ปริมาณงานทั้งหมด (ทุกชีต)</div><div class="kpi-value" style="color:#4F46E5;">{total_all:,}</div></div>', unsafe_allow_html=True)
     with col2:
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">✅ งานแล้วเสร็จ (ภาพรวม)</div><div class="kpi-value" style="color:MediumSeaGreen;">{done_all:,}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">✅ งานแล้วเสร็จ (ภาพรวม)</div><div class="kpi-value" style="color:#10B981;">{done_all:,}</div></div>', unsafe_allow_html=True)
     with col3:
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">💰 วงเงินก่อสร้างรวม (ทั่วประเทศ)</div><div class="kpi-value" style="color:#5F9EA0;">{budget_sum:,.0f} ฿</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">💰 วงเงินก่อสร้างรวม (ทั่วประเทศ)</div><div class="kpi-value" style="color:#38BDF8;">{budget_sum:,.0f} ฿</div></div>', unsafe_allow_html=True)
 
     # Main Chart
     create_pea_chart(summary_df)
@@ -387,7 +403,7 @@ if uploaded_file:
     # ==================================================
     if selected_main_proj != "-- กรุณาเลือกหมวดงาน --":
         
-        st.markdown(f"## 🔎 เจาะลึกรายละเอียดงาน: <span style='color:#660099;'>{selected_main_proj}</span>", unsafe_allow_html=True)
+        st.markdown(f"## 🔎 เจาะลึกรายละเอียดงาน: <span style='color:#4F46E5;'>{selected_main_proj}</span>", unsafe_allow_html=True)
         
         search_term = str(selected_main_proj).strip().upper()
         detail_df = all_df[all_df["โครงการหลัก"].str.upper().str.contains(search_term, regex=False)].copy()
@@ -400,13 +416,12 @@ if uploaded_file:
             pie_data = detail_df["สถานะ"].value_counts().reset_index()
             pie_data.columns = ["Status", "Count"]
 
-            # โทนสีตามที่ Request มา
             color_map = {
-                "✅ แล้วเสร็จ": "MediumSeaGreen",            
-                "⏳ อยู่ระหว่างดำเนินการ": "#5F9EA0", 
-                "❌ ยังไม่ได้ดำเนินการ": "#660099"    
+                "✅ แล้วเสร็จ": "#10B981",            
+                "⏳ อยู่ระหว่างดำเนินการ": "#F59E0B", 
+                "❌ ยังไม่ได้ดำเนินการ": "#EF4444"    
             }
-            colors = [color_map.get(s, "#483D8B") for s in pie_data["Status"]]
+            colors = [color_map.get(s, "#94A3B8") for s in pie_data["Status"]]
 
             sub_budget_series = detail_df["วงเงิน"].astype(str).str.replace(',', '').str.replace(' ', '')
             sub_budget = pd.to_numeric(sub_budget_series, errors='coerce').fillna(0).sum()
@@ -416,24 +431,24 @@ if uploaded_file:
             scol1, scol2, scol3 = st.columns([1, 1, 1.5])
             with scol1:
                 st.markdown(f'''
-                <div class="sub-kpi" style="border-left: 5px solid #483D8B;">
+                <div class="sub-kpi" style="border-left: 5px solid #4F46E5;">
                     <p class="sub-kpi-title">📌 งานย่อยทั้งหมด</p>
-                    <p class="sub-kpi-val" style="color:#483D8B;">{len(detail_df)} งาน</p>
+                    <p class="sub-kpi-val" style="color:#0F172A;">{len(detail_df)} งาน</p>
                 </div>
                 ''', unsafe_allow_html=True)
             with scol2:
                 done_count = len(detail_df[detail_df["สถานะ"] == "✅ แล้วเสร็จ"])
                 st.markdown(f'''
-                <div class="sub-kpi" style="border-left: 5px solid MediumSeaGreen;">
+                <div class="sub-kpi" style="border-left: 5px solid #10B981;">
                     <p class="sub-kpi-title">✅ เสร็จสมบูรณ์แล้ว</p>
-                    <p class="sub-kpi-val" style="color:MediumSeaGreen;">{done_count} งาน</p>
+                    <p class="sub-kpi-val" style="color:#10B981;">{done_count} งาน</p>
                 </div>
                 ''', unsafe_allow_html=True)
             with scol3:
                 st.markdown(f'''
-                <div class="sub-kpi" style="border-left: 5px solid #5F9EA0;">
+                <div class="sub-kpi" style="border-left: 5px solid #38BDF8;">
                     <p class="sub-kpi-title">💰 วงเงินเฉพาะหมวดนี้</p>
-                    <p class="sub-kpi-val" style="color:#5F9EA0;">{sub_budget:,.0f} ฿</p>
+                    <p class="sub-kpi-val" style="color:#0284C7;">{sub_budget:,.0f} ฿</p>
                 </div>
                 ''', unsafe_allow_html=True)
 
@@ -448,12 +463,13 @@ if uploaded_file:
                     textposition='outside', 
                     hoverinfo='label+value'
                 )])
+                
                 fig_pie.update_layout(
                     margin=dict(l=30, r=30, t=20, b=20), 
                     height=350,
                     showlegend=True,
-                    legend=dict(orientation="h", y=-0.2),
-                    font=dict(family="Sarabun, sans-serif", size=14, color="#483D8B"),
+                    legend=dict(orientation="h", y=-0.2, font=dict(color="#1E293B")),
+                    font=dict(family="Sarabun, sans-serif", size=14, color="#1E293B"),
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)"
                 )
@@ -462,7 +478,7 @@ if uploaded_file:
             with col_stat:
                 st.markdown("<br>", unsafe_allow_html=True)
                 for _, row in pie_data.iterrows():
-                    color_hex = color_map.get(row['Status'], "#483D8B")
+                    color_hex = color_map.get(row['Status'], "#1E293B")
                     st.markdown(f"**<span style='color:{color_hex};'>{row['Status']}</span> :** {row['Count']} งาน", unsafe_allow_html=True)
 
             st.markdown("---")
