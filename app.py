@@ -41,7 +41,7 @@ html, body, [class*="css"]  {
     padding: 32px;
     border-radius: 20px;
     margin-bottom: 32px;
-    box-shadow: 0 10px 25px -5px rgba(76, 29, 149, 0.4); /* Indigo Shadow */
+    box-shadow: 0 10px 25px -5px rgba(76, 29, 149, 0.4); 
     border: 1px solid rgba(255,255,255,0.1);
 }
 .pea-title { font-size: 36px; font-weight: 700; margin-bottom: 8px; color: #FFFFFF; letter-spacing: -0.5px;}
@@ -49,12 +49,12 @@ html, body, [class*="css"]  {
 
 /* GLASSMORPHISM CARDS (การ์ดกระจก) */
 .glass-card {
-    background: rgba(255, 255, 255, 0.9); /* Pure White แบบโปร่งใสเล็กน้อย */
+    background: rgba(255, 255, 255, 0.9); 
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-radius: 20px;
     padding: 24px;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025); /* Soft Drop Shadow */
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025); 
     border: 1px solid rgba(255, 255, 255, 0.6);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     margin-bottom: 24px;
@@ -75,9 +75,9 @@ html, body, [class*="css"]  {
 .category-value { font-size: 15px; margin-bottom: 8px; color: #475569; font-weight: 500;}
 .category-note { color: #0EA5E9; margin-top: 16px; font-size: 13px; border-top: 1px solid #F1F5F9; padding-top: 12px; font-weight: 500;}
 
-/* Table Headers (Coral, Cyan, Amber) */
-.table-header-done { color: #06B6D4; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #06B6D4; padding-bottom: 8px;}
-.table-header-prog { color: #0EA5E9; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #0EA5E9; padding-bottom: 8px;}
+/* Table Headers (อัปเดตสีตามที่กำหนดเป๊ะๆ) */
+.table-header-done { color: #0BFF8D; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #0BFF8D; padding-bottom: 8px;}
+.table-header-prog { color: #D58A19; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #D58A19; padding-bottom: 8px;}
 .table-header-not  { color: #F43F5E; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #F43F5E; padding-bottom: 8px;}
 
 /* Global Text Colors */
@@ -271,8 +271,8 @@ def create_category_cards(summary_df):
                 <div class="category-number">{str(i+1).zfill(2)}</div>
                 <div class="category-title">{row["โครงการ"]}</div>
                 <div class="category-value"><b>{row["จำนวนงาน"]}</b> งานทั้งหมด</div>
-                <div class="category-value"><span style="color:#06B6D4; font-weight:700;">✅ เสร็จ {row["งานแล้วเสร็จ"]} งาน</span></div>
-                <div class="category-value"><span style="color:#0EA5E9; font-weight:700;">⏳ คงเหลือ {row["งานรอดำเนินการ"]} งาน</span></div>
+                <div class="category-value"><span style="color:#0BFF8D; font-weight:700;">✅ เสร็จ {row["งานแล้วเสร็จ"]} งาน</span></div>
+                <div class="category-value"><span style="color:#D58A19; font-weight:700;">⏳ คงเหลือ {row["งานรอดำเนินการ"]} งาน</span></div>
                 <div class="category-note">{note}</div>
             </div>
             """, unsafe_allow_html=True)
@@ -294,15 +294,16 @@ def create_pea_chart(summary_df):
 
     fig = go.Figure()
     
-    # กราฟแท่งใช้ Deep Indigo & Bright Azure
+    # แท่งงานทั้งหมด
     fig.add_bar(
         x=wrapped_x, y=summary_df["จำนวนงาน"], name="จำนวนงานทั้งหมด", 
         marker_color="#3730A3", text=summary_df["จำนวนงาน"], textposition="outside", cliponaxis=False,
         marker_line_width=0
     )
+    # แท่งงานที่เสร็จแล้ว (คุมสี #0BFF8D)
     fig.add_bar(
         x=wrapped_x, y=summary_df["งานแล้วเสร็จ"], name="งานแล้วเสร็จ", 
-        marker_color="#0EA5E9", text=summary_df["งานแล้วเสร็จ"], textposition="outside", cliponaxis=False,
+        marker_color="#0BFF8D", text=summary_df["งานแล้วเสร็จ"], textposition="outside", cliponaxis=False,
         marker_line_width=0
     )
 
@@ -365,7 +366,7 @@ if uploaded_file:
     budget_series = all_df["วงเงิน"].astype(str).str.replace(',', '').str.replace(' ', '')
     budget_sum = pd.to_numeric(budget_series, errors='coerce').fillna(0).sum()
 
-    # 📌 KPI Cards (Tailwind Colors: Indigo, Cyan, Amber)
+    # 📌 KPI Cards 
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(f'''
@@ -377,7 +378,7 @@ if uploaded_file:
         st.markdown(f'''
         <div class="glass-card">
             <div class="kpi-title">✅ งานแล้วเสร็จ</div>
-            <div class="kpi-value" style="color: #06B6D4;">{done_all:,} <span style="font-size:16px; color:#94A3B8;">งาน</span></div>
+            <div class="kpi-value" style="color: #0BFF8D;">{done_all:,} <span style="font-size:16px; color:#94A3B8;">งาน</span></div>
         </div>''', unsafe_allow_html=True)
     with col3:
         st.markdown(f'''
@@ -399,7 +400,7 @@ if uploaded_file:
     # ==================================================
     if selected_main_proj != "-- กรุณาเลือกหมวดงาน --":
         
-        st.markdown(f"## 🔎 เจาะลึกรายละเอียดงาน: <span style='color:#0EA5E9;'>{selected_main_proj}</span>", unsafe_allow_html=True)
+        st.markdown(f"## 🔎 เจาะลึกรายละเอียดงาน: <span style='color:#3730A3;'>{selected_main_proj}</span>", unsafe_allow_html=True)
         
         search_term = str(selected_main_proj).strip().upper()
         detail_df = all_df[all_df["โครงการหลัก"].str.upper().str.contains(search_term, regex=False)].copy()
@@ -412,10 +413,10 @@ if uploaded_file:
             pie_data = detail_df["สถานะ"].value_counts().reset_index()
             pie_data.columns = ["Status", "Count"]
 
-            # โทนสีสถานะตามที่ขอ: Cyan(สำเร็จ), Azure(ดำเนินการ), Coral(ยังไม่ทำ)
+            # โทนสีสถานะตามที่กำหนด
             color_map = {
-                "✅ แล้วเสร็จ": "#06B6D4",            
-                "⏳ อยู่ระหว่างดำเนินการ": "#0EA5E9", 
+                "✅ แล้วเสร็จ": "#0BFF8D",            
+                "⏳ อยู่ระหว่างดำเนินการ": "#D58A19", 
                 "❌ ยังไม่ได้ดำเนินการ": "#F43F5E"    
             }
             colors = [color_map.get(s, "#94A3B8") for s in pie_data["Status"]]
@@ -436,9 +437,9 @@ if uploaded_file:
             with scol2:
                 done_count = len(detail_df[detail_df["สถานะ"] == "✅ แล้วเสร็จ"])
                 st.markdown(f'''
-                <div class="glass-card" style="border-left: 6px solid #06B6D4;">
+                <div class="glass-card" style="border-left: 6px solid #0BFF8D;">
                     <p class="kpi-title" style="margin:0;">✅ เสร็จสมบูรณ์แล้ว</p>
-                    <p class="kpi-value" style="color:#06B6D4; margin: 5px 0 0 0;">{done_count}</p>
+                    <p class="kpi-value" style="color:#0BFF8D; margin: 5px 0 0 0;">{done_count}</p>
                 </div>
                 ''', unsafe_allow_html=True)
             with scol3:
