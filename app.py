@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import openpyxl
+import textwrap
 
 # ==================================================
 # PAGE CONFIG
@@ -12,7 +13,7 @@ st.set_page_config(
 )
 
 # ==================================================
-# CSS (MODERN UI REVAMP)
+# CSS (CUSTOM COLOR THEME)
 # ==================================================
 st.markdown("""
 <style>
@@ -22,20 +23,21 @@ html, body, [class*="css"]  {
     font-family: 'Sarabun', sans-serif;
 }
 
-.main { background-color: #F8F9FA; }
+/* พื้นหลังหลักใช้สี #F5DEB3 (Wheat) */
+.main { background-color: #F5DEB3; }
 .block-container { padding-top: 2rem; padding-bottom: 2rem; }
 
-/* HEADER */
+/* HEADER: ไล่ระดับสี #483D8B -> #660099 -> #5F9EA0 */
 .pea-header {
-    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); /* โทน Midnight Blue/Teal ดูพรีเมียม */
+    background: linear-gradient(135deg, #483D8B, #660099, #5F9EA0); 
     color: white;
     padding: 30px;
     border-radius: 16px;
     margin-bottom: 30px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    box-shadow: 0 10px 30px rgba(72, 61, 139, 0.2);
 }
 .pea-title { font-size: 34px; font-weight: 700; margin-bottom: 8px;}
-.pea-subtitle { font-size: 16px; font-weight: 300; opacity: 0.85; letter-spacing: 0.5px;}
+.pea-subtitle { font-size: 16px; font-weight: 300; opacity: 0.9; letter-spacing: 0.5px;}
 
 /* KPI Cards */
 .kpi-card {
@@ -43,23 +45,23 @@ html, body, [class*="css"]  {
     border-radius: 16px;
     padding: 24px;
     margin-bottom: 20px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
     border: 1px solid #EBEBEB;
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
 .kpi-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+    box-shadow: 0 8px 25px rgba(102, 0, 153, 0.15);
 }
-.kpi-title { font-size: 16px; color: #7F8C8D; margin-bottom: 5px; font-weight: 500;}
-.kpi-value { font-size: 32px; font-weight: 700; color: #2C3E50; }
+.kpi-title { font-size: 16px; color: #483D8B; margin-bottom: 5px; font-weight: 600;}
+.kpi-value { font-size: 32px; font-weight: 700; }
 
 /* Category Cards */
 .category-card {
     background: white;
     border-radius: 16px;
     padding: 24px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
     margin-bottom: 20px;
     min-height: 200px;
     border: 1px solid #EBEBEB;
@@ -67,30 +69,30 @@ html, body, [class*="css"]  {
 }
 .category-card:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
-    border-color: #BDC3C7;
+    box-shadow: 0 8px 25px rgba(102, 0, 153, 0.15);
+    border-color: #660099;
 }
-.category-number { color: #34495E; font-size: 24px; font-weight: 700; opacity: 0.5;}
-.category-title { font-size: 18px; font-weight: 700; margin: 10px 0; color: #2C3E50; line-height: 1.4;}
+.category-number { color: #660099; font-size: 24px; font-weight: 700; opacity: 0.6;}
+.category-title { font-size: 18px; font-weight: 700; margin: 10px 0; color: #483D8B; line-height: 1.4;}
 .category-value { font-size: 15px; margin-bottom: 6px; color: #555;}
-.category-note { color: #95A5A6; margin-top: 12px; font-size: 13px; border-top: 1px dashed #EEE; padding-top: 10px;}
+.category-note { color: #5F9EA0; margin-top: 12px; font-size: 13px; border-top: 1px dashed #EEE; padding-top: 10px; font-weight: 500;}
 
 /* Table Section Headers */
-.table-header-done { color: #27AE60; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #27AE60; padding-bottom: 8px;}
-.table-header-prog { color: #F39C12; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #F39C12; padding-bottom: 8px;}
-.table-header-not  { color: #E74C3C; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #E74C3C; padding-bottom: 8px;}
+.table-header-done { color: MediumSeaGreen; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid MediumSeaGreen; padding-bottom: 8px;}
+.table-header-prog { color: #5F9EA0; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #5F9EA0; padding-bottom: 8px;}
+.table-header-not  { color: #660099; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #660099; padding-bottom: 8px;}
 
 /* Sub-KPI (Drilldown) */
 .sub-kpi {
     background: white;
     padding: 20px 24px;
     border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
     margin-bottom: 20px;
     border: 1px solid #F0F0F0;
 }
-.sub-kpi-title { font-size: 14px; color: #7F8C8D; margin: 0; font-weight: 500;}
-.sub-kpi-val { font-size: 26px; font-weight: 700; color: #2C3E50; margin: 5px 0 0 0; }
+.sub-kpi-title { font-size: 14px; color: #483D8B; margin: 0; font-weight: 600;}
+.sub-kpi-val { font-size: 26px; font-weight: 700; margin: 5px 0 0 0; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -101,7 +103,6 @@ THAI_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.",
 
 @st.cache_data
 def get_all_excel_data(uploaded_file):
-    """ฟังก์ชันกวาดข้อมูลจาก *ทุกชีต* พร้อมสแกนสีและกรองขยะ"""
     wb = openpyxl.load_workbook(uploaded_file, data_only=True)
     all_data = []
     
@@ -219,7 +220,6 @@ def get_all_excel_data(uploaded_file):
 
 @st.cache_data
 def read_summary_sheet(uploaded_file):
-    """อ่านข้อมูลจาก Sheet 'สรุป'"""
     wb = openpyxl.load_workbook(uploaded_file, data_only=True)
     if "สรุป" not in wb.sheetnames: return pd.DataFrame()
     ws = wb["สรุป"]
@@ -276,11 +276,50 @@ def create_category_cards(summary_df):
                 <div class="category-number">[{i+1}]</div>
                 <div class="category-title">📁 {row["โครงการ"]}</div>
                 <div class="category-value"><b>{row["จำนวนงาน"]}</b> งานทั้งหมด</div>
-                <div class="category-value"><span style="color:#27AE60;">✅ เสร็จ {row["งานแล้วเสร็จ"]} งาน</span></div>
-                <div class="category-value"><span style="color:#F39C12;">⏳ คงเหลือ {row["งานรอดำเนินการ"]} งาน</span></div>
+                <div class="category-value"><span style="color:MediumSeaGreen; font-weight:600;">✅ เสร็จ {row["งานแล้วเสร็จ"]} งาน</span></div>
+                <div class="category-value"><span style="color:#5F9EA0; font-weight:600;">⏳ คงเหลือ {row["งานรอดำเนินการ"]} งาน</span></div>
                 <div class="category-note">{note}</div>
             </div>
             """, unsafe_allow_html=True)
+
+def create_pea_chart(summary_df):
+    def wrap_label(text):
+        text = str(text)
+        if len(text) > 20:
+            if " " in text:
+                return "<br>".join(textwrap.wrap(text, width=20))
+            elif "/" in text:
+                return text.replace("/", "/<br>")
+            else:
+                mid = len(text) // 2
+                return text[:mid] + "<br>" + text[mid:]
+        return text
+
+    wrapped_x = summary_df["โครงการ"].apply(wrap_label)
+
+    fig = go.Figure()
+    
+    fig.add_bar(
+        x=wrapped_x, y=summary_df["จำนวนงาน"], name="จำนวนงานทั้งหมด", 
+        marker_color="#483D8B", text=summary_df["จำนวนงาน"], textposition="outside", cliponaxis=False
+    )
+    fig.add_bar(
+        x=wrapped_x, y=summary_df["งานแล้วเสร็จ"], name="งานแล้วเสร็จ", 
+        marker_color="MediumSeaGreen", text=summary_df["งานแล้วเสร็จ"], textposition="outside", cliponaxis=False
+    )
+
+    fig.update_layout(
+        barmode="group", 
+        height=550, 
+        paper_bgcolor="rgba(0,0,0,0)", # พื้นหลังโปร่งใสเพื่อให้กลืนกับ #F5DEB3
+        plot_bgcolor="rgba(255,255,255,0.6)", # พื้นหลังกราฟสีขาวขุ่น
+        font=dict(family="Sarabun, sans-serif", size=14, color="#483D8B"),
+        legend=dict(orientation="h", y=1.12, font=dict(size=14)), 
+        margin=dict(l=20, r=20, t=40, b=80), 
+        xaxis=dict(showgrid=False, tickangle=0), 
+        yaxis=dict(showgrid=True, gridcolor="#EBEBEB")
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
 # ==================================================
 # MAIN APP
@@ -330,28 +369,14 @@ if uploaded_file:
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">📌 ปริมาณงานทั้งหมด (ทุกชีต)</div><div class="kpi-value">{total_all:,}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">📌 ปริมาณงานทั้งหมด (ทุกชีต)</div><div class="kpi-value" style="color:#483D8B;">{total_all:,}</div></div>', unsafe_allow_html=True)
     with col2:
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">✅ งานแล้วเสร็จ (ภาพรวม)</div><div class="kpi-value" style="color:#27AE60;">{done_all:,}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">✅ งานแล้วเสร็จ (ภาพรวม)</div><div class="kpi-value" style="color:MediumSeaGreen;">{done_all:,}</div></div>', unsafe_allow_html=True)
     with col3:
-        st.markdown(f'<div class="kpi-card"><div class="kpi-title">💰 วงเงินก่อสร้างรวม (ทั่วประเทศ)</div><div class="kpi-value" style="color:#2980B9;">{budget_sum:,.0f} ฿</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-title">💰 วงเงินก่อสร้างรวม (ทั่วประเทศ)</div><div class="kpi-value" style="color:#5F9EA0;">{budget_sum:,.0f} ฿</div></div>', unsafe_allow_html=True)
 
-    # Main Chart (Modern Colors)
-    fig = go.Figure()
-    fig.add_bar(x=summary_df["โครงการ"], y=summary_df["จำนวนงาน"], name="จำนวนงานทั้งหมด", marker_color="#34495E", text=summary_df["จำนวนงาน"], textposition="auto")
-    fig.add_bar(x=summary_df["โครงการ"], y=summary_df["งานแล้วเสร็จ"], name="งานแล้วเสร็จ", marker_color="#27AE60", text=summary_df["งานแล้วเสร็จ"], textposition="auto")
-    fig.update_layout(
-        barmode="group", 
-        height=450, 
-        paper_bgcolor="white", 
-        plot_bgcolor="white",
-        font=dict(family="Sarabun, sans-serif", size=14, color="#2C3E50"),
-        legend=dict(orientation="h", y=1.12, font=dict(size=14)), 
-        margin=dict(l=20, r=20, t=40, b=20),
-        xaxis=dict(showgrid=False),
-        yaxis=dict(showgrid=True, gridcolor="#F0F0F0")
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    # Main Chart
+    create_pea_chart(summary_df)
 
     st.markdown("---")
     create_category_cards(summary_df)
@@ -362,7 +387,7 @@ if uploaded_file:
     # ==================================================
     if selected_main_proj != "-- กรุณาเลือกหมวดงาน --":
         
-        st.markdown(f"## 🔎 เจาะลึกรายละเอียดงาน: <span style='color:#2980B9;'>{selected_main_proj}</span>", unsafe_allow_html=True)
+        st.markdown(f"## 🔎 เจาะลึกรายละเอียดงาน: <span style='color:#660099;'>{selected_main_proj}</span>", unsafe_allow_html=True)
         
         search_term = str(selected_main_proj).strip().upper()
         detail_df = all_df[all_df["โครงการหลัก"].str.upper().str.contains(search_term, regex=False)].copy()
@@ -375,13 +400,13 @@ if uploaded_file:
             pie_data = detail_df["สถานะ"].value_counts().reset_index()
             pie_data.columns = ["Status", "Count"]
 
-            # โทนสีสุภาพ ทันสมัย (Corporate Colors)
+            # โทนสีตามที่ Request มา
             color_map = {
-                "✅ แล้วเสร็จ": "#27AE60",            # เขียวมรกต
-                "⏳ อยู่ระหว่างดำเนินการ": "#F39C12", # ส้มเหลืองอำพัน
-                "❌ ยังไม่ได้ดำเนินการ": "#E74C3C"    # แดงตุ่น/ซอฟต์เรด
+                "✅ แล้วเสร็จ": "MediumSeaGreen",            
+                "⏳ อยู่ระหว่างดำเนินการ": "#5F9EA0", 
+                "❌ ยังไม่ได้ดำเนินการ": "#660099"    
             }
-            colors = [color_map.get(s, "#95A5A6") for s in pie_data["Status"]]
+            colors = [color_map.get(s, "#483D8B") for s in pie_data["Status"]]
 
             sub_budget_series = detail_df["วงเงิน"].astype(str).str.replace(',', '').str.replace(' ', '')
             sub_budget = pd.to_numeric(sub_budget_series, errors='coerce').fillna(0).sum()
@@ -391,24 +416,24 @@ if uploaded_file:
             scol1, scol2, scol3 = st.columns([1, 1, 1.5])
             with scol1:
                 st.markdown(f'''
-                <div class="sub-kpi" style="border-left: 5px solid #34495E;">
+                <div class="sub-kpi" style="border-left: 5px solid #483D8B;">
                     <p class="sub-kpi-title">📌 งานย่อยทั้งหมด</p>
-                    <p class="sub-kpi-val">{len(detail_df)} งาน</p>
+                    <p class="sub-kpi-val" style="color:#483D8B;">{len(detail_df)} งาน</p>
                 </div>
                 ''', unsafe_allow_html=True)
             with scol2:
                 done_count = len(detail_df[detail_df["สถานะ"] == "✅ แล้วเสร็จ"])
                 st.markdown(f'''
-                <div class="sub-kpi" style="border-left: 5px solid #27AE60;">
+                <div class="sub-kpi" style="border-left: 5px solid MediumSeaGreen;">
                     <p class="sub-kpi-title">✅ เสร็จสมบูรณ์แล้ว</p>
-                    <p class="sub-kpi-val">{done_count} งาน</p>
+                    <p class="sub-kpi-val" style="color:MediumSeaGreen;">{done_count} งาน</p>
                 </div>
                 ''', unsafe_allow_html=True)
             with scol3:
                 st.markdown(f'''
-                <div class="sub-kpi" style="border-left: 5px solid #2980B9;">
+                <div class="sub-kpi" style="border-left: 5px solid #5F9EA0;">
                     <p class="sub-kpi-title">💰 วงเงินเฉพาะหมวดนี้</p>
-                    <p class="sub-kpi-val">{sub_budget:,.0f} ฿</p>
+                    <p class="sub-kpi-val" style="color:#5F9EA0;">{sub_budget:,.0f} ฿</p>
                 </div>
                 ''', unsafe_allow_html=True)
 
@@ -420,22 +445,24 @@ if uploaded_file:
                     hole=0.45,
                     marker=dict(colors=colors),
                     textinfo='label+percent+value',
-                    textposition='inside',
+                    textposition='outside', 
                     hoverinfo='label+value'
                 )])
                 fig_pie.update_layout(
-                    margin=dict(l=0, r=0, t=10, b=10),
+                    margin=dict(l=30, r=30, t=20, b=20), 
                     height=350,
                     showlegend=True,
                     legend=dict(orientation="h", y=-0.2),
-                    font=dict(family="Sarabun, sans-serif", size=14, color="#2C3E50")
+                    font=dict(family="Sarabun, sans-serif", size=14, color="#483D8B"),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)"
                 )
                 st.plotly_chart(fig_pie, use_container_width=True)
                 
             with col_stat:
                 st.markdown("<br>", unsafe_allow_html=True)
                 for _, row in pie_data.iterrows():
-                    color_hex = color_map.get(row['Status'], "#95A5A6")
+                    color_hex = color_map.get(row['Status'], "#483D8B")
                     st.markdown(f"**<span style='color:{color_hex};'>{row['Status']}</span> :** {row['Count']} งาน", unsafe_allow_html=True)
 
             st.markdown("---")
