@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import openpyxl
 import textwrap
+import re
 
 # ==================================================
 # PAGE CONFIG
@@ -79,7 +80,7 @@ html, body, [class*="css"]  {
 .kpi-value { font-size: 36px; font-weight: 700; line-height: 1.2; }
 
 /* Category Cards Specifics */
-.category-card { min-height: 210px; }
+.category-card { min-height: 220px; }
 .category-number { color: #3730A3; font-size: 24px; font-weight: 800; opacity: 0.2; float: right;}
 .category-title { font-size: 18px; font-weight: 700; margin: 0 0 12px 0; color: #0F172A;}
 .category-value { font-size: 15px; margin-bottom: 8px; color: #475569; font-weight: 500;}
@@ -89,6 +90,44 @@ html, body, [class*="css"]  {
 .table-header-done { color: #0BFF8D; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #0BFF8D; padding-bottom: 8px;}
 .table-header-prog { color: #D58A19; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #D58A19; padding-bottom: 8px;}
 .table-header-not  { color: #F43F5E; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #F43F5E; padding-bottom: 8px;}
+
+/* 📌 Custom CSS สำหรับ HTML Table แบบจัดระเบียบ */
+.styled-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0 20px 0;
+    font-size: 14px;
+    background-color: white;
+    border: 1px solid #E2E8F0;
+}
+.styled-table thead tr {
+    background-color: #F8FAFC;
+    color: #475569;
+}
+.styled-table th {
+    padding: 12px 15px;
+    border: 1px solid #E2E8F0;
+    text-align: center !important; /* จัดกึ่งกลางหัวตาราง */
+    vertical-align: middle;
+    white-space: nowrap; /* หัวตารางไม่ตกบรรทัด */
+}
+.styled-table td {
+    padding: 12px 15px;
+    border: 1px solid #E2E8F0;
+    vertical-align: top;
+    color: #334155;
+    white-space: nowrap; /* ค่าเริ่มต้นให้ข้อมูลทุกช่องอยู่บรรทัดเดียว (เช่น จังหวัด วงเงิน) */
+}
+/* 📌 บังคับให้คอลัมน์ 'ชื่องาน' (คอลัมน์ 2) และ 'หมายเหตุ' (คอลัมน์ 8) ปัดบรรทัดใหม่ได้ */
+.styled-table td:nth-child(2),
+.styled-table td:nth-child(8) {
+    white-space: normal !important; 
+    word-wrap: break-word;
+    min-width: 250px; 
+}
+.styled-table tbody tr:hover {
+    background-color: #F1F5F9;
+}
 
 /* Global Text Colors */
 p, li, span, div { color: #334155; }
@@ -107,7 +146,22 @@ h1, h2, h3, h4, h5, h6 { color: #0F172A !important; font-weight: 700 !important;
 # ==================================================
 THAI_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
 
-# 📌 เพิ่ม show_spinner=False เพื่อซ่อนกล่องข้อความมุมขวาบนตอนโหลด Cache
+def extract_year_from_text(text):
+    if not text: return ""
+    text = str(text)
+    match = re.search(r'SCOD\s*(\d{2})', text, re.IGNORECASE)
+    if match: return match.group(1)
+    match = re.search(r'\((\d{2})\)', text)
+    if match: return match.group(1)
+    match = re.search(r'ปี\s*(25\d{2}|\d{2})', text)
+    if match:
+        year_str = match.group(1)
+        if len(year_str) == 4: return year_str[-2:]
+        return year_str
+    match = re.search(r'\s(\d{2})$', text)
+    if match: return match.group(1)
+    return ""
+
 @st.cache_data(show_spinner=False)
 def get_all_excel_data(uploaded_file):
     wb = openpyxl.load_workbook(uploaded_file, data_only=True)
@@ -116,7 +170,8 @@ def get_all_excel_data(uploaded_file):
     keywords_mapping = {
         "โครงการ": ["โครงการ", "ประเภทงาน", "หมวดงาน"],
         "ชื่องาน": ["ชื่องาน", "ชื่อโครงการย่อย", "รายละเอียดงาน", "รายการ"],
-        "พื้นที่": ["พื้นที่", "กฟข.", "เขต", "จังหวัด"],
+        "พื้นที่": ["พื้นที่", "กฟข.", "เขต"], 
+        "จังหวัด": ["จังหวัด"],
         "ผู้รับผิดชอบ": ["ผู้รับผิดชอบ", "ผู้ดำเนินการ"],
         "วงเงิน": ["วงเงินตามอนุมัติ", "วงเงินงบประมาณ", "งบประมาณ", "วงเงิน"],
         "หมายเหตุ": ["อนุมัติ/หมายเหตุ/ปัญหา", "หมายเหตุ", "ปัญหา"],
@@ -180,15 +235,20 @@ def get_all_excel_data(uploaded_file):
             if task_clean in ["รวม", "รวมทั้งสิ้น", "ยอดรวม", "รวมทั้งหมด"] or proj_clean in ["รวม", "รวมทั้งสิ้น", "ยอดรวม"]:
                 continue
             
+            year_suffix = extract_year_from_text(current_project)
+            if not year_suffix:
+                year_suffix = extract_year_from_text(sheet_name)
+            
             deadline_str = "-"
-            sort_index = 99999 
+            sort_index = 9999 
             
             for c in sorted(month_cols.keys(), reverse=True):
                 cell = ws.cell(r, c)
                 if cell.fill and cell.fill.patternType == 'solid':
                     color = cell.fill.start_color.rgb
                     if color and str(color) not in ['00000000', 'FFFFFFFF', '000000', 'None']:
-                        deadline_str = month_cols[c]
+                        month_str = month_cols[c]
+                        deadline_str = f"{month_str} {year_suffix}".strip() if year_suffix else month_str
                         sort_index = c 
                         break 
             
@@ -197,6 +257,7 @@ def get_all_excel_data(uploaded_file):
                 "โครงการหลัก": current_project,
                 "ชื่องาน": task_str,
                 "พื้นที่": str(ws.cell(r, col_map["พื้นที่"]).value or "-").strip() if "พื้นที่" in col_map else "-",
+                "จังหวัด": str(ws.cell(r, col_map["จังหวัด"]).value or "-").strip() if "จังหวัด" in col_map else "-",
                 "ผู้รับผิดชอบ": str(ws.cell(r, col_map["ผู้รับผิดชอบ"]).value or "-").strip() if "ผู้รับผิดชอบ" in col_map else "-",
                 "วงเงิน": ws.cell(r, col_map["วงเงิน"]).value if "วงเงิน" in col_map else 0,
                 "หมายเหตุ/ปัญหา": str(ws.cell(r, col_map["หมายเหตุ"]).value or "-").strip() if "หมายเหตุ" in col_map else "-"
@@ -224,7 +285,6 @@ def get_all_excel_data(uploaded_file):
 
     return df_combined
 
-# 📌 เพิ่ม show_spinner=False เพื่อซ่อนกล่องข้อความมุมขวาบนตอนโหลด Cache
 @st.cache_data(show_spinner=False)
 def read_summary_sheet(uploaded_file):
     wb = openpyxl.load_workbook(uploaded_file, data_only=True)
@@ -268,28 +328,48 @@ def read_summary_sheet(uploaded_file):
         })
     return pd.DataFrame(data)
 
+def render_html_table(df, cols):
+    display_df = df[cols].copy()
+    if "วงเงิน" in display_df.columns:
+        display_df["วงเงิน"] = pd.to_numeric(display_df["วงเงิน"].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+        display_df["วงเงิน"] = display_df["วงเงิน"].apply(lambda x: f"{x:,.0f}")
+        
+    return display_df.to_html(index=False, classes="styled-table", escape=False)
+
 # ==================================================
 # UI COMPONENTS
 # ==================================================
 def create_category_cards(summary_df):
+    if summary_df.empty: return
     st.markdown("## 📂 สรุปตามหมวดงาน")
     cols = st.columns(4)
 
     for i, row in summary_df.iterrows():
         with cols[i % 4]:
             note = row.get("หมายเหตุ", "")
+            total = row["จำนวนงาน"]
+            done = row["งานแล้วเสร็จ"]
+            pending = row["งานรอดำเนินการ"]
+            percent = (done / total * 100) if total > 0 else 0
+            
             st.markdown(f"""
             <div class="glass-card category-card">
                 <div class="category-number">{str(i+1).zfill(2)}</div>
                 <div class="category-title">{row["โครงการ"]}</div>
-                <div class="category-value"><b>{row["จำนวนงาน"]}</b> งานทั้งหมด</div>
-                <div class="category-value"><span style="color:#0BFF8D; font-weight:700;">✅ เสร็จ {row["งานแล้วเสร็จ"]} งาน</span></div>
-                <div class="category-value"><span style="color:#D58A19; font-weight:700;">⏳ คงเหลือ {row["งานรอดำเนินการ"]} งาน</span></div>
+                <div class="category-value"><b>{total}</b> งานทั้งหมด</div>
+                <div class="category-value">
+                    <span style="color:#0BFF8D; font-weight:700;">✅ เสร็จ {done} งาน ({percent:.1f}%)</span>
+                </div>
+                <div style="width: 100%; background-color: #E2E8F0; border-radius: 999px; height: 6px; margin: 6px 0 12px 0;">
+                    <div style="background-color: #0BFF8D; height: 6px; border-radius: 999px; width: {percent}%;"></div>
+                </div>
+                <div class="category-value"><span style="color:#D58A19; font-weight:700;">⏳ คงเหลือ {pending} งาน</span></div>
                 <div class="category-note">{note}</div>
             </div>
             """, unsafe_allow_html=True)
 
 def create_pea_chart(summary_df):
+    if summary_df.empty: return
     def wrap_label(text):
         text = str(text)
         if len(text) > 20:
@@ -331,15 +411,13 @@ def create_pea_chart(summary_df):
     st.plotly_chart(fig, use_container_width=True)
 
 # ==================================================
-# PAGE 1: LIQUID GLASS UPLOAD PAGE (เฉพาะหน้าแรก)
+# PAGE 1: UPLOAD PAGE
 # ==================================================
 if st.session_state.app_state == 'upload':
     st.markdown("""
         <style>
-        /* ซ่อน Sidebar ทั้งหมดในหน้านี้ */
         [data-testid="collapsedControl"], [data-testid="stSidebar"] { display: none !important; }
         
-        /* 🎨 Animated Pastel Gradient Background (วิ่งเปลี่ยนสีไปเรื่อยๆ) */
         @keyframes liquidGradient {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
@@ -352,7 +430,6 @@ if st.session_state.app_state == 'upload':
             animation: liquidGradient 12s ease infinite !important;
         }
 
-        /* 💧 Liquid Glass Design สำหรับ Header Text */
         .liquid-header-box {
             background: rgba(255, 255, 255, 0.4);
             backdrop-filter: blur(15px);
@@ -381,7 +458,6 @@ if st.session_state.app_state == 'upload':
             font-weight: 500;
         }
 
-        /* 💧 Liquid Glass Design สำหรับกล่อง Uploader */
         [data-testid="stFileUploader"] {
             background: rgba(255, 255, 255, 0.45) !important;
             backdrop-filter: blur(20px) !important;
@@ -451,13 +527,13 @@ elif st.session_state.app_state == 'dashboard':
         
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 🔎 เจาะลึกรายละเอียดงาน")
-    st.sidebar.caption("ระบบรวบรวมข้อมูลจากทุกชีตอัตโนมัติ")
+    st.sidebar.caption("เลือกระดับหมวดงานเพื่อดูรายละเอียดเชิงลึก")
     
     main_projects = summary_df["โครงการ"].dropna().astype(str).unique().tolist()
     main_projects = [p for p in main_projects if p.strip() and p.lower() != "nan"]
     main_projects.insert(0, "-- ภาพรวมทั้งหมด --")
     
-    selected_main_proj = st.sidebar.selectbox("📌 เลือกหมวดงาน (ค้นหาข้ามชีต):", main_projects)
+    selected_main_proj = st.sidebar.selectbox("📌 เลือกหมวดงาน:", main_projects)
 
     # ---------------------------------------------
     # RENDER OVERVIEW (หน้าที่ 2)
@@ -466,12 +542,14 @@ elif st.session_state.app_state == 'dashboard':
         st.markdown("""
         <div class="pea-header">
             <div class="pea-title">Executive Dashboard</div>
-            <div class="pea-subtitle">รายงานสรุปผลการดำเนินงานแบบเรียลไทม์ (ภาพรวมทั่วประเทศ)</div>
+            <div class="pea-subtitle">รายงานสรุปผลการดำเนินงานแบบเรียลไทม์</div>
         </div>
         """, unsafe_allow_html=True)
 
-        total_all = summary_df["จำนวนงาน"].sum()
-        done_all = summary_df["งานแล้วเสร็จ"].sum()
+        total_all = summary_df["จำนวนงาน"].sum() if not summary_df.empty else 0
+        done_all = summary_df["งานแล้วเสร็จ"].sum() if not summary_df.empty else 0
+        
+        percent_all = (done_all / total_all * 100) if total_all > 0 else 0
         
         budget_series = all_df["วงเงิน"].astype(str).str.replace(',', '').str.replace(' ', '')
         budget_sum = pd.to_numeric(budget_series, errors='coerce').fillna(0).sum()
@@ -487,7 +565,10 @@ elif st.session_state.app_state == 'dashboard':
             st.markdown(f'''
             <div class="glass-card">
                 <div class="kpi-title">✅ งานแล้วเสร็จ</div>
-                <div class="kpi-value" style="color: #0BFF8D;">{done_all:,} <span style="font-size:16px; color:#94A3B8;">งาน</span></div>
+                <div class="kpi-value" style="color: #0BFF8D;">{done_all:,} <span style="font-size:16px; color:#94A3B8;">งาน</span> <span style="font-size:24px; color:#059669;">({percent_all:.1f}%)</span></div>
+                <div style="width: 100%; background-color: #E2E8F0; border-radius: 999px; height: 8px; margin-top: 12px;">
+                    <div style="background-color: #0BFF8D; height: 8px; border-radius: 999px; width: {percent_all}%;"></div>
+                </div>
             </div>''', unsafe_allow_html=True)
         with col3:
             st.markdown(f'''
@@ -496,11 +577,13 @@ elif st.session_state.app_state == 'dashboard':
                 <div class="kpi-value" style="color: #D97706;">{budget_sum:,.0f} <span style="font-size:16px; color:#94A3B8;">บาท</span></div>
             </div>''', unsafe_allow_html=True)
 
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        create_pea_chart(summary_df)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        create_category_cards(summary_df)
+        if not summary_df.empty:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            create_pea_chart(summary_df)
+            st.markdown('</div>', unsafe_allow_html=True)
+            create_category_cards(summary_df)
+        else:
+            st.warning("⚠️ ไม่พบข้อมูลสรุปโครงการ")
 
     # ---------------------------------------------
     # RENDER DRILL-DOWN (หน้าที่ 3)
@@ -533,10 +616,11 @@ elif st.session_state.app_state == 'dashboard':
             
             scol1, scol2, scol3 = st.columns([1, 1, 1.5])
             with scol1:
+                total_sub_tasks = len(detail_df)
                 st.markdown(f'''
                 <div class="glass-card" style="border-left: 6px solid #3730A3;">
                     <p class="kpi-title" style="margin:0;">📌 งานย่อยทั้งหมด</p>
-                    <p class="kpi-value" style="color:#0F172A; margin: 5px 0 0 0;">{len(detail_df)}</p>
+                    <p class="kpi-value" style="color:#0F172A; margin: 5px 0 0 0;">{total_sub_tasks}</p>
                 </div>
                 ''', unsafe_allow_html=True)
             with scol2:
@@ -588,25 +672,42 @@ elif st.session_state.app_state == 'dashboard':
             st.markdown("### 📋 ตารางรายละเอียดงาน (เรียงตามกำหนดแล้วเสร็จ)")
             
             detail_df.rename(columns={"โครงการหลัก": "โครงการ (หมวดหลัก)"}, inplace=True)
-            display_cols = ["โครงการ (หมวดหลัก)", "ชื่องาน", "แหล่งที่มา (ชีต)", "พื้นที่", "ผู้รับผิดชอบ", "วงเงิน", "หมายเหตุ/ปัญหา", "Deadline"]
+            
+            filter_col1, filter_col2 = st.columns(2)
+            
+            area_options = ["ทั้งหมด"] + sorted([str(x) for x in detail_df["พื้นที่"].unique() if pd.notna(x) and str(x).strip() not in ["", "-"]])
+            owner_options = ["ทั้งหมด"] + sorted([str(x) for x in detail_df["ผู้รับผิดชอบ"].unique() if pd.notna(x) and str(x).strip() not in ["", "-"]])
+            
+            with filter_col1:
+                selected_table_area = st.selectbox("📍 กรองข้อมูลตามพื้นที่ (เลือกได้ 1 พื้นที่):", options=area_options, index=0)
+            with filter_col2:
+                selected_table_owner = st.selectbox("👤 กรองข้อมูลตามผู้รับผิดชอบ (เลือกได้ 1 ผู้รับผิดชอบ):", options=owner_options, index=0)
+                
+            filtered_table_df = detail_df.copy()
+            if selected_table_area != "ทั้งหมด":
+                filtered_table_df = filtered_table_df[filtered_table_df["พื้นที่"].astype(str) == selected_table_area]
+            if selected_table_owner != "ทั้งหมด":
+                filtered_table_df = filtered_table_df[filtered_table_df["ผู้รับผิดชอบ"].astype(str) == selected_table_owner]
+            
+            display_cols = ["โครงการ (หมวดหลัก)", "ชื่องาน", "แหล่งที่มา (ชีต)", "พื้นที่", "จังหวัด", "ผู้รับผิดชอบ", "วงเงิน", "หมายเหตุ/ปัญหา", "Deadline"]
 
-            df_done = detail_df[detail_df["สถานะ"] == "✅ แล้วเสร็จ"].sort_values(by="Sort_Index")
+            df_done = filtered_table_df[filtered_table_df["สถานะ"] == "✅ แล้วเสร็จ"].sort_values(by="Sort_Index")
             st.markdown('<div class="table-header-done">✅ งานที่แล้วเสร็จ</div>', unsafe_allow_html=True)
             if not df_done.empty:
-                st.dataframe(df_done[display_cols], use_container_width=True, hide_index=True)
+                st.markdown(render_html_table(df_done, display_cols), unsafe_allow_html=True)
             else:
-                st.info("ไม่มีงานที่แล้วเสร็จในหมวดนี้")
+                st.info("ไม่มีข้อมูลที่ตรงกับเงื่อนไขในสถานะนี้")
 
-            df_prog = detail_df[detail_df["สถานะ"] == "⏳ อยู่ระหว่างดำเนินการ"].sort_values(by="Sort_Index")
+            df_prog = filtered_table_df[filtered_table_df["สถานะ"] == "⏳ อยู่ระหว่างดำเนินการ"].sort_values(by="Sort_Index")
             st.markdown('<div class="table-header-prog">⏳ งานที่อยู่ระหว่างดำเนินการ</div>', unsafe_allow_html=True)
             if not df_prog.empty:
-                st.dataframe(df_prog[display_cols], use_container_width=True, hide_index=True)
+                st.markdown(render_html_table(df_prog, display_cols), unsafe_allow_html=True)
             else:
-                st.info("ไม่มีงานที่กำลังดำเนินการในหมวดนี้")
+                st.info("ไม่มีข้อมูลที่ตรงกับเงื่อนไขในสถานะนี้")
 
-            df_not = detail_df[detail_df["สถานะ"] == "❌ ยังไม่ได้ดำเนินการ"].sort_values(by="Sort_Index")
+            df_not = filtered_table_df[filtered_table_df["สถานะ"] == "❌ ยังไม่ได้ดำเนินการ"].sort_values(by="Sort_Index")
             st.markdown('<div class="table-header-not">❌ งานที่ยังไม่ได้ดำเนินการ</div>', unsafe_allow_html=True)
             if not df_not.empty:
-                st.dataframe(df_not[display_cols], use_container_width=True, hide_index=True)
+                st.markdown(render_html_table(df_not, display_cols), unsafe_allow_html=True)
             else:
-                st.info("ไม่มีงานค้างที่ยังไม่ดำเนินการ")
+                st.info("ไม่มีข้อมูลที่ตรงกับเงื่อนไขในสถานะนี้")
