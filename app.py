@@ -4,6 +4,10 @@ import plotly.graph_objects as go
 import openpyxl
 import textwrap
 import re
+import requests
+import io
+from google.oauth2 import service_account
+import google.auth.transport.requests
 
 # ==================================================
 # PAGE CONFIG
@@ -18,14 +22,16 @@ st.set_page_config(
 # SESSION STATE INITIALIZATION
 # ==================================================
 if 'app_state' not in st.session_state:
-    st.session_state.app_state = 'upload' 
+    st.session_state.app_state = 'connect' 
 if 'summary_df' not in st.session_state:
     st.session_state.summary_df = None
 if 'all_df' not in st.session_state:
     st.session_state.all_df = None
+if 'gsheet_url' not in st.session_state:
+    st.session_state.gsheet_url = ""
 
 # ==================================================
-# CSS GLOBAL (สำหรับหน้า Dashboard)
+# CSS GLOBAL
 # ==================================================
 st.markdown("""
 <style>
@@ -35,17 +41,15 @@ html, body, [class*="css"]  {
     font-family: 'Sarabun', sans-serif;
 }
 
-/* พื้นหลังเว็บสี Slate-50 ให้การ์ดสีขาวดูโดดเด่น */
 [data-testid="stAppViewContainer"] {
     background-color: #F8FAFC; 
-    color: #1E293B; /* Slate-800 */
+    color: #1E293B; 
 }
 [data-testid="stHeader"] {
     background-color: transparent;
 }
 .block-container { padding-top: 2rem; padding-bottom: 2rem; }
 
-/* HEADER: Deep Navy -> Indigo Purple -> Azure Blue */
 .pea-header {
     background: linear-gradient(135deg, #0A192F, #4C1D95, #0284C7); 
     color: white;
@@ -58,7 +62,6 @@ html, body, [class*="css"]  {
 .pea-title { font-size: 36px; font-weight: 700; margin-bottom: 8px; color: #FFFFFF; letter-spacing: -0.5px;}
 .pea-subtitle { font-size: 16px; font-weight: 400; color: #E0E7FF; letter-spacing: 0.5px;}
 
-/* GLASSMORPHISM CARDS (การ์ดกระจก) */
 .glass-card {
     background: rgba(255, 255, 255, 0.9); 
     backdrop-filter: blur(12px);
@@ -75,23 +78,20 @@ html, body, [class*="css"]  {
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
-/* Typography สำหรับ KPI */
 .kpi-title { font-size: 15px; color: #64748B; margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;}
 .kpi-value { font-size: 36px; font-weight: 700; line-height: 1.2; }
 
-/* Category Cards Specifics */
 .category-card { min-height: 220px; }
 .category-number { color: #3730A3; font-size: 24px; font-weight: 800; opacity: 0.2; float: right;}
 .category-title { font-size: 18px; font-weight: 700; margin: 0 0 12px 0; color: #0F172A;}
 .category-value { font-size: 15px; margin-bottom: 8px; color: #475569; font-weight: 500;}
 .category-note { color: #0EA5E9; margin-top: 16px; font-size: 13px; border-top: 1px solid #F1F5F9; padding-top: 12px; font-weight: 500;}
 
-/* Table Headers */
 .table-header-done { color: #0BFF8D; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #0BFF8D; padding-bottom: 8px;}
 .table-header-prog { color: #D58A19; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #D58A19; padding-bottom: 8px;}
 .table-header-not  { color: #F43F5E; font-size: 18px; font-weight: 700; margin-top: 25px; border-bottom: 2px solid #F43F5E; padding-bottom: 8px;}
 
-/* 📌 Custom CSS สำหรับ HTML Table แบบจัดระเบียบ */
+/* Custom CSS HTML Table */
 .styled-table {
     width: 100%;
     border-collapse: collapse;
@@ -107,18 +107,17 @@ html, body, [class*="css"]  {
 .styled-table th {
     padding: 12px 15px;
     border: 1px solid #E2E8F0;
-    text-align: center !important; /* จัดกึ่งกลางหัวตาราง */
+    text-align: center !important; 
     vertical-align: middle;
-    white-space: nowrap; /* หัวตารางไม่ตกบรรทัด */
+    white-space: nowrap; 
 }
 .styled-table td {
     padding: 12px 15px;
     border: 1px solid #E2E8F0;
     vertical-align: top;
     color: #334155;
-    white-space: nowrap; /* ค่าเริ่มต้นให้ข้อมูลทุกช่องอยู่บรรทัดเดียว (เช่น จังหวัด วงเงิน) */
+    white-space: nowrap; 
 }
-/* 📌 บังคับให้คอลัมน์ 'ชื่องาน' (คอลัมน์ 2) และ 'หมายเหตุ' (คอลัมน์ 8) ปัดบรรทัดใหม่ได้ */
 .styled-table td:nth-child(2),
 .styled-table td:nth-child(8) {
     white-space: normal !important; 
@@ -129,11 +128,6 @@ html, body, [class*="css"]  {
     background-color: #F1F5F9;
 }
 
-/* Global Text Colors */
-p, li, span, div { color: #334155; }
-h1, h2, h3, h4, h5, h6 { color: #0F172A !important; font-weight: 700 !important; }
-
-/* Scrollbar สวยๆ */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
@@ -142,29 +136,71 @@ h1, h2, h3, h4, h5, h6 { color: #0F172A !important; font-weight: 700 !important;
 """, unsafe_allow_html=True)
 
 # ==================================================
-# DATA PROCESSING FUNCTIONS
+# API & DATA PROCESSING FUNCTIONS
 # ==================================================
 THAI_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
 
 def extract_year_from_text(text):
     if not text: return ""
-    text = str(text)
+    text = str(text).strip() 
+    
     match = re.search(r'SCOD\s*(\d{2})', text, re.IGNORECASE)
     if match: return match.group(1)
+    
     match = re.search(r'\((\d{2})\)', text)
     if match: return match.group(1)
+    
     match = re.search(r'ปี\s*(25\d{2}|\d{2})', text)
     if match:
         year_str = match.group(1)
-        if len(year_str) == 4: return year_str[-2:]
-        return year_str
-    match = re.search(r'\s(\d{2})$', text)
+        return year_str[-2:] if len(year_str) == 4 else year_str
+        
+    match = re.search(r'(25\d{2})', text)
+    if match: return match.group(1)[-2:]
+    
+    match = re.search(r'([6-9]\d)$', text)
     if match: return match.group(1)
+    
     return ""
 
+def fetch_private_gsheet_excel(url):
+    try:
+        match = re.search(r'\/d\/(.*?)\/', url)
+        if not match:
+            st.error("ลิงก์ไม่ถูกต้อง กรุณาตรวจสอบลิงก์ Google Sheets อีกครั้ง")
+            return None
+        sheet_id = match.group(1)
+
+        creds_info = st.secrets["connections"]["gsheets"]
+        credentials = service_account.Credentials.from_service_account_info(
+            creds_info,
+            scopes=['https://www.googleapis.com/auth/drive.readonly']
+        )
+
+        request = google.auth.transport.requests.Request()
+        credentials.refresh(request)
+
+        export_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
+        headers = {'Authorization': f'Bearer {credentials.token}'}
+        
+        response = requests.get(export_url, headers=headers)
+        
+        if response.status_code == 200:
+            return io.BytesIO(response.content)
+        else:
+            st.error(f"ไม่สามารถเข้าถึงไฟล์ได้ (Status {response.status_code}): โปรดตรวจสอบว่าคุณได้แชร์ไฟล์ให้กับอีเมลใน Service Account เป็น Viewer แล้วหรือยัง")
+            return None
+
+    except KeyError:
+        st.error("ไม่พบข้อมูล API Key ในไฟล์ .streamlit/secrets.toml โปรดตั้งค่าให้เรียบร้อย")
+        return None
+    except Exception as e:
+        st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูล: {e}")
+        return None
+
 @st.cache_data(show_spinner=False)
-def get_all_excel_data(uploaded_file):
-    wb = openpyxl.load_workbook(uploaded_file, data_only=True)
+def get_all_excel_data(file_bytes):
+    wb = openpyxl.load_workbook(file_bytes, data_only=True)
     all_data = []
     
     keywords_mapping = {
@@ -273,6 +309,9 @@ def get_all_excel_data(uploaded_file):
     df_combined = pd.DataFrame(all_data)
     
     if not df_combined.empty:
+        # ---- ทำความสะอาดข้อมูล: ตัดคำว่า (เพิ่มเติม) ออกจากโครงการหลัก ----
+        df_combined["โครงการหลัก"] = df_combined["โครงการหลัก"].astype(str).str.replace(r'\s*\(เพิ่มเติม\)', '', regex=True)
+        
         def map_3_status(val):
             val = str(val).strip().lower()
             if val in ["nan", "none", "", "nat", "-", "0", "0.0"]: return "❌ ยังไม่ได้ดำเนินการ"
@@ -286,8 +325,8 @@ def get_all_excel_data(uploaded_file):
     return df_combined
 
 @st.cache_data(show_spinner=False)
-def read_summary_sheet(uploaded_file):
-    wb = openpyxl.load_workbook(uploaded_file, data_only=True)
+def read_summary_sheet(file_bytes):
+    wb = openpyxl.load_workbook(file_bytes, data_only=True)
     if "สรุป" not in wb.sheetnames: return pd.DataFrame()
     ws = wb["สรุป"]
     
@@ -300,33 +339,30 @@ def read_summary_sheet(uploaded_file):
             
     if not header_row: return pd.DataFrame()
 
-    c_proj, c_total, c_done = None, None, None
+    c_proj, c_note = None, None
     for c in range(1, ws.max_column + 1):
         val = str(ws.cell(header_row, c).value).strip()
         if "ประเภทงาน" in val or "โครงการ" in val: c_proj = c
-        elif "จำนวน" in val: c_total = c
-        elif "แล้วเสร็จ" in val: c_done = c
+        elif "หมายเหตุ" in val or "ปัญหา" in val: c_note = c
 
     data = []
     for r in range(header_row + 1, ws.max_row + 1):
         name = ws.cell(r, c_proj).value if c_proj else None
         if not name or "รวม" in str(name): continue
-        
-        total = ws.cell(r, c_total).value if c_total else 0
-        done = ws.cell(r, c_done).value if c_done else 0
-        try: total = int(total) if total else 0
-        except: total = 0
-        try: done = int(done) if done else 0
-        except: done = 0
+        note = ws.cell(r, c_note).value if c_note else ""
 
         data.append({
             "โครงการ": str(name).strip(),
-            "จำนวนงาน": total,
-            "งานแล้วเสร็จ": done,
-            "งานรอดำเนินการ": total - done,
-            "หมายเหตุ": "" 
+            "หมายเหตุ": str(note).strip() if note else "" 
         })
-    return pd.DataFrame(data)
+        
+    df_summary = pd.DataFrame(data)
+    if not df_summary.empty:
+        # ตัดคำว่า (เพิ่มเติม) ออกเช่นเดียวกัน เพื่อให้จับคู่กับข้อมูลหลักได้
+        df_summary["โครงการ"] = df_summary["โครงการ"].astype(str).str.replace(r'\s*\(เพิ่มเติม\)', '', regex=True)
+        df_summary = df_summary.drop_duplicates(subset=['โครงการ'], keep='first')
+        
+    return df_summary
 
 def render_html_table(df, cols):
     display_df = df[cols].copy()
@@ -344,7 +380,7 @@ def create_category_cards(summary_df):
     st.markdown("## 📂 สรุปตามหมวดงาน")
     cols = st.columns(4)
 
-    for i, row in summary_df.iterrows():
+    for i, row in summary_df.reset_index(drop=True).iterrows():
         with cols[i % 4]:
             note = row.get("หมายเหตุ", "")
             total = row["จำนวนงาน"]
@@ -411,9 +447,9 @@ def create_pea_chart(summary_df):
     st.plotly_chart(fig, use_container_width=True)
 
 # ==================================================
-# PAGE 1: UPLOAD PAGE
+# PAGE 1: GOOGLE SHEETS CONNECT PAGE
 # ==================================================
-if st.session_state.app_state == 'upload':
+if st.session_state.app_state == 'connect':
     st.markdown("""
         <style>
         [data-testid="collapsedControl"], [data-testid="stSidebar"] { display: none !important; }
@@ -457,26 +493,6 @@ if st.session_state.app_state == 'upload':
             font-size: 18px;
             font-weight: 500;
         }
-
-        [data-testid="stFileUploader"] {
-            background: rgba(255, 255, 255, 0.45) !important;
-            backdrop-filter: blur(20px) !important;
-            -webkit-backdrop-filter: blur(20px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.8) !important;
-            border-radius: 24px !important;
-            padding: 30px !important;
-            box-shadow: 0 8px 32px 0 rgba(100, 100, 100, 0.1) !important;
-        }
-        
-        [data-testid="stFileUploadDropzone"] {
-            background: rgba(255, 255, 255, 0.5) !important;
-            border: 2px dashed rgba(255, 255, 255, 0.8) !important;
-            border-radius: 16px !important;
-        }
-        [data-testid="stFileUploadDropzone"]:hover {
-            background: rgba(255, 255, 255, 0.8) !important;
-            border-color: #FFFFFF !important;
-        }
         </style>
     """, unsafe_allow_html=True)
     
@@ -487,49 +503,138 @@ if st.session_state.app_state == 'upload':
         st.markdown("""
         <div class="liquid-header-box">
             <div class="upload-title">📊 PEA Executive Dashboard</div>
-            <div class="upload-subtitle">ระบบรายงานสรุปผลการดำเนินงานแบบเรียลไทม์</div>
+            <div class="upload-subtitle">ระบบรายงานสรุปผลแบบเชื่อมต่อ Google Sheets (Private)</div>
         </div>
         """, unsafe_allow_html=True)
         
-        uploaded_file = st.file_uploader("📂 กรุณาอัปโหลดไฟล์ Excel เพื่อเริ่มต้นใช้งาน", type=["xlsx", "xls"])
-
-        if uploaded_file:
-            with st.spinner('กำลังประมวลผลข้อมูลและตรวจสอบความถูกต้อง...'):
-                summary_df = read_summary_sheet(uploaded_file)
-                all_df = get_all_excel_data(uploaded_file)
-                
-            if summary_df.empty:
-                st.error("❌ ไม่สามารถดึงข้อมูลได้ กรุณาตรวจสอบว่ามีชีต 'สรุป' และคอลัมน์ถูกต้อง")
-            elif all_df.empty:
-                st.warning("❌ ไม่พบข้อมูลรายละเอียดโครงการในชีตอื่นๆ กรุณาตรวจสอบฟอร์แมตตาราง")
+        url_input = st.text_input("🔗 วางลิงก์ Google Sheets (Private) ที่นี่:", placeholder="https://docs.google.com/spreadsheets/d/...")
+        
+        if st.button("🚀 โหลดข้อมูล", use_container_width=True):
+            if not url_input:
+                st.warning("⚠️ กรุณาวางลิงก์ Google Sheets ก่อนครับ")
             else:
-                st.session_state.summary_df = summary_df
-                st.session_state.all_df = all_df
-                st.session_state.app_state = 'dashboard'
-                st.rerun()
+                with st.spinner('กำลังใช้ API Key ดึงข้อมูลและประมวลผล (อาจใช้เวลาสักครู่)...'):
+                    file_bytes = fetch_private_gsheet_excel(url_input)
+                    
+                    if file_bytes is not None:
+                        summary_df_notes = read_summary_sheet(file_bytes)
+                        file_bytes.seek(0) 
+                        all_df = get_all_excel_data(file_bytes)
+                        
+                        if all_df.empty:
+                            st.warning("❌ ไม่พบข้อมูลรายละเอียดโครงการในชีตย่อยเลย กรุณาตรวจสอบรูปแบบไฟล์")
+                        else:
+                            st.session_state.gsheet_url = url_input
+                            st.session_state.summary_df = summary_df_notes 
+                            st.session_state.all_df = all_df
+                            st.session_state.app_state = 'dashboard'
+                            st.rerun()
 
 # ==================================================
 # PAGE 2 & 3: DASHBOARD PAGE
 # ==================================================
 elif st.session_state.app_state == 'dashboard':
-    summary_df = st.session_state.summary_df
-    all_df = st.session_state.all_df
+    all_df = st.session_state.all_df.copy()
+
+    # --- ดึง 'ปี' โดยให้ความสำคัญกับ "ชื่อชีต" เป็นอันดับแรก ---
+    if "ปี" not in all_df.columns:
+        # 1. ลองดึงจากแหล่งที่มา (ชื่อชีต) ก่อน
+        all_df["ปี"] = all_df["แหล่งที่มา (ชีต)"].apply(extract_year_from_text)
+        
+        # 2. ถ้าดึงจากชื่อชีตไม่ได้ (ได้ค่าว่าง) ค่อยไปหาในชื่อโครงการหลัก
+        mask_empty = all_df["ปี"] == ""
+        all_df.loc[mask_empty, "ปี"] = all_df.loc[mask_empty, "โครงการหลัก"].apply(extract_year_from_text)
+        
+        # 3. ถ้าหาไม่ได้เลยให้ใส่ "ไม่ระบุ"
+        all_df["ปี"] = all_df["ปี"].replace("", "ไม่ระบุ")
 
     # ---------------------------------------------
     # SIDEBAR
     # ---------------------------------------------
     st.sidebar.markdown("### ⚙️ การจัดการข้อมูล")
-    if st.sidebar.button("⬅️ อัปโหลดไฟล์ใหม่", use_container_width=True):
-        st.session_state.app_state = 'upload'
+    
+    if st.sidebar.button("🔄 ดึงข้อมูลล่าสุด", type="primary", use_container_width=True):
+        with st.spinner('กำลังใช้ API Key ดึงข้อมูลล่าสุด...'):
+            file_bytes = fetch_private_gsheet_excel(st.session_state.gsheet_url)
+            if file_bytes:
+                st.session_state.summary_df = read_summary_sheet(file_bytes)
+                file_bytes.seek(0)
+                st.session_state.all_df = get_all_excel_data(file_bytes)
+                st.cache_data.clear() 
+                st.rerun()
+
+    if st.sidebar.button("⬅️ เปลี่ยนลิงก์ Google Sheets", use_container_width=True):
+        st.session_state.app_state = 'connect'
         st.session_state.summary_df = None
         st.session_state.all_df = None
+        st.session_state.gsheet_url = ""
         st.rerun()
         
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### 🔎 เจาะลึกรายละเอียดงาน")
-    st.sidebar.caption("เลือกระดับหมวดงานเพื่อดูรายละเอียดเชิงลึก")
+    st.sidebar.markdown("### 🔎 ตัวกรองข้อมูล")
     
-    main_projects = summary_df["โครงการ"].dropna().astype(str).unique().tolist()
+    available_years = sorted(all_df["ปี"].unique().tolist())
+    if "ไม่ระบุ" in available_years:
+        available_years.remove("ไม่ระบุ")
+        available_years.append("ไม่ระบุ")
+    available_years.insert(0, "ทุกปี")
+    
+    selected_year = st.sidebar.selectbox("📅 เลือกปีงบประมาณ:", available_years)
+
+    if selected_year == "ทุกปี":
+        filtered_all_df = all_df.copy()
+    else:
+        filtered_all_df = all_df[all_df["ปี"] == selected_year].copy()
+
+    # --- ส่วนที่เพิ่มใหม่: จัดกลุ่ม SPP ให้เป็นหมวดเดียวกัน ---
+    def group_project_category(name):
+        name_str = str(name).strip()
+        if name_str.upper().startswith("SPP"):
+            return "SPP" # ดึงทุกอย่างที่ขึ้นต้นด้วย SPP มารวมในชื่อนี้
+        return name_str
+
+    filtered_all_df["หมวดงาน_Dropdown"] = filtered_all_df["โครงการหลัก"].apply(group_project_category)
+    # ----------------------------------------------------
+
+    def generate_dynamic_summary(df):
+        if df.empty: return pd.DataFrame()
+        
+        # เปลี่ยนการ Group By จาก 'โครงการหลัก' เป็น 'หมวดงาน_Dropdown'
+        summary = df.groupby('หมวดงาน_Dropdown').agg({
+            'ชื่องาน': 'count',
+            'สถานะ': lambda x: (x == '✅ แล้วเสร็จ').sum()
+        }).reset_index()
+        
+        summary.rename(columns={
+            'หมวดงาน_Dropdown': 'โครงการ',
+            'ชื่องาน': 'จำนวนงาน',
+            'สถานะ': 'งานแล้วเสร็จ'
+        }, inplace=True)
+        
+        summary['งานรอดำเนินการ'] = summary['จำนวนงาน'] - summary['งานแล้วเสร็จ']
+        
+        orig_sum = st.session_state.summary_df
+        if orig_sum is not None and not orig_sum.empty and 'โครงการ' in orig_sum.columns:
+            notes_dict = dict(zip(orig_sum['โครงการ'], orig_sum['หมายเหตุ']))
+            
+            # สร้างคำอธิบายสำหรับกลุ่ม SPP โดยดึงชื่อโครงการย่อยมาต่อกัน
+            def get_note(proj):
+                if proj == "SPP":
+                    spp_list = df[df["หมวดงาน_Dropdown"] == "SPP"]["โครงการหลัก"].unique()
+                    spp_list_clean = [s for s in spp_list if str(s).strip() != ""]
+                    return f"รวมโครงการ: {', '.join(spp_list_clean)}"
+                return notes_dict.get(proj, "")
+                
+            summary['หมายเหตุ'] = summary['โครงการ'].apply(get_note)
+        else:
+            summary['หมายเหตุ'] = ""
+            
+        return summary.sort_values(by='จำนวนงาน', ascending=False).reset_index(drop=True)
+
+    filtered_summary_df = generate_dynamic_summary(filtered_all_df)
+
+    st.sidebar.markdown("### 🎯 เจาะลึกรายละเอียดงาน")
+    main_projects = filtered_summary_df["โครงการ"].dropna().astype(str).unique().tolist()
     main_projects = [p for p in main_projects if p.strip() and p.lower() != "nan"]
     main_projects.insert(0, "-- ภาพรวมทั้งหมด --")
     
@@ -542,23 +647,23 @@ elif st.session_state.app_state == 'dashboard':
         st.markdown("""
         <div class="pea-header">
             <div class="pea-title">Executive Dashboard</div>
-            <div class="pea-subtitle">รายงานสรุปผลการดำเนินงานแบบเรียลไทม์</div>
+            <div class="pea-subtitle">รายงานสรุปผลการดำเนินงานแบบเรียลไทม์ (Private Data)</div>
         </div>
         """, unsafe_allow_html=True)
 
-        total_all = summary_df["จำนวนงาน"].sum() if not summary_df.empty else 0
-        done_all = summary_df["งานแล้วเสร็จ"].sum() if not summary_df.empty else 0
+        total_all = filtered_summary_df["จำนวนงาน"].sum() if not filtered_summary_df.empty else 0
+        done_all = filtered_summary_df["งานแล้วเสร็จ"].sum() if not filtered_summary_df.empty else 0
         
         percent_all = (done_all / total_all * 100) if total_all > 0 else 0
         
-        budget_series = all_df["วงเงิน"].astype(str).str.replace(',', '').str.replace(' ', '')
+        budget_series = filtered_all_df["วงเงิน"].astype(str).str.replace(',', '').str.replace(' ', '')
         budget_sum = pd.to_numeric(budget_series, errors='coerce').fillna(0).sum()
 
         col1, col2, col3 = st.columns(3)
         with col1:
             st.markdown(f'''
             <div class="glass-card">
-                <div class="kpi-title">📌 ปริมาณงานทั้งหมด</div>
+                <div class="kpi-title">📌 ปริมาณงานทั้งหมด {f"({selected_year})" if selected_year != "ทุกปี" else ""}</div>
                 <div class="kpi-value" style="color: #3730A3;">{total_all:,} <span style="font-size:16px; color:#94A3B8;">งาน</span></div>
             </div>''', unsafe_allow_html=True)
         with col2:
@@ -577,13 +682,13 @@ elif st.session_state.app_state == 'dashboard':
                 <div class="kpi-value" style="color: #D97706;">{budget_sum:,.0f} <span style="font-size:16px; color:#94A3B8;">บาท</span></div>
             </div>''', unsafe_allow_html=True)
 
-        if not summary_df.empty:
+        if not filtered_summary_df.empty:
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            create_pea_chart(summary_df)
+            create_pea_chart(filtered_summary_df)
             st.markdown('</div>', unsafe_allow_html=True)
-            create_category_cards(summary_df)
+            create_category_cards(filtered_summary_df)
         else:
-            st.warning("⚠️ ไม่พบข้อมูลสรุปโครงการ")
+            st.warning(f"⚠️ ไม่พบข้อมูลสำหรับปี: {selected_year}")
 
     # ---------------------------------------------
     # RENDER DRILL-DOWN (หน้าที่ 3)
@@ -591,13 +696,15 @@ elif st.session_state.app_state == 'dashboard':
     else:
         st.markdown(f"## 🔎 เจาะลึกรายละเอียดงาน: <span style='color:#3730A3;'>{selected_main_proj}</span>", unsafe_allow_html=True)
         
-        search_term = str(selected_main_proj).strip().upper()
-        detail_df = all_df[all_df["โครงการหลัก"].str.upper().str.contains(search_term, regex=False)].copy()
+        # เปลี่ยนมาใช้การกรองจากคอลัมน์ หมวดงาน_Dropdown แทน
+        detail_df = filtered_all_df[filtered_all_df["หมวดงาน_Dropdown"] == selected_main_proj].copy()
 
         if detail_df.empty:
             st.info(f"ไม่พบข้อมูลย่อยของ '{selected_main_proj}'")
         else:
-            detail_df["โครงการหลัก"] = selected_main_proj 
+            # เอาบรรทัด detail_df["โครงการหลัก"] = selected_main_proj ออก
+            # เพื่อให้ตารางด้านล่างยังคงแสดงชื่อโปรเจกต์ย่อย (เช่น SPP (SCOD 70)) ได้อย่างชัดเจน
+            pass 
 
             pie_data = detail_df["สถานะ"].value_counts().reset_index()
             pie_data.columns = ["Status", "Count"]
