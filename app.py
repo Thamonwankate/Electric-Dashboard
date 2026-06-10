@@ -221,6 +221,7 @@ def get_all_excel_data(file_bytes):
         col_map = {}
         month_cols = {}
         header_row = 1
+        month_row = 1
         
         for r in range(1, 15):
             for c in range(1, ws.max_column + 1):
@@ -239,6 +240,30 @@ def get_all_excel_data(file_bytes):
                     
                     if val_str in THAI_MONTHS:
                         month_cols[c] = val_str
+                        month_row = r
+
+        # --- ระบบสแกนหา "ปี" จากหัวตาราง Excel (แถวเหนือเดือน) ---
+        year_mapping = {}
+        if month_cols:
+            for check_r in range(month_row - 1, 0, -1):
+                current_year = ""
+                has_year_in_this_row = False
+                temp_mapping = {}
+                
+                for c in range(1, ws.max_column + 1):
+                    val = ws.cell(check_r, c).value
+                    if val is not None:
+                        val_str = str(val).strip()
+                        match_year = re.search(r'(25\d{2}|20\d{2})', val_str)
+                        if match_year:
+                            current_year = match_year.group(1)[-2:]
+                            has_year_in_this_row = True
+                    temp_mapping[c] = current_year
+                
+                if has_year_in_this_row:
+                    year_mapping = temp_mapping
+                    break 
+        # -----------------------------------------------------------
 
         if "โครงการ" not in col_map: continue
         
@@ -284,7 +309,13 @@ def get_all_excel_data(file_bytes):
                     color = cell.fill.start_color.rgb
                     if color and str(color) not in ['00000000', 'FFFFFFFF', '000000', 'None']:
                         month_str = month_cols[c]
-                        deadline_str = f"{month_str} {year_suffix}".strip() if year_suffix else month_str
+                        
+                        grid_year = year_mapping.get(c, "")
+                        if grid_year:
+                            deadline_str = f"{month_str} {grid_year}"
+                        else:
+                            deadline_str = f"{month_str} {year_suffix}".strip() if year_suffix else month_str
+                            
                         sort_index = c 
                         break 
             
@@ -309,7 +340,6 @@ def get_all_excel_data(file_bytes):
     df_combined = pd.DataFrame(all_data)
     
     if not df_combined.empty:
-        # ---- ทำความสะอาดข้อมูล: ตัดคำว่า (เพิ่มเติม) ออกจากโครงการหลัก ----
         df_combined["โครงการหลัก"] = df_combined["โครงการหลัก"].astype(str).str.replace(r'\s*\(เพิ่มเติม\)', '', regex=True)
         
         def map_3_status(val):
@@ -358,7 +388,6 @@ def read_summary_sheet(file_bytes):
         
     df_summary = pd.DataFrame(data)
     if not df_summary.empty:
-        # ตัดคำว่า (เพิ่มเติม) ออกเช่นเดียวกัน เพื่อให้จับคู่กับข้อมูลหลักได้
         df_summary["โครงการ"] = df_summary["โครงการ"].astype(str).str.replace(r'\s*\(เพิ่มเติม\)', '', regex=True)
         df_summary = df_summary.drop_duplicates(subset=['โครงการ'], keep='first')
         
@@ -538,14 +567,9 @@ elif st.session_state.app_state == 'dashboard':
 
     # --- ดึง 'ปี' โดยให้ความสำคัญกับ "ชื่อชีต" เป็นอันดับแรก ---
     if "ปี" not in all_df.columns:
-        # 1. ลองดึงจากแหล่งที่มา (ชื่อชีต) ก่อน
         all_df["ปี"] = all_df["แหล่งที่มา (ชีต)"].apply(extract_year_from_text)
-        
-        # 2. ถ้าดึงจากชื่อชีตไม่ได้ (ได้ค่าว่าง) ค่อยไปหาในชื่อโครงการหลัก
         mask_empty = all_df["ปี"] == ""
         all_df.loc[mask_empty, "ปี"] = all_df.loc[mask_empty, "โครงการหลัก"].apply(extract_year_from_text)
-        
-        # 3. ถ้าหาไม่ได้เลยให้ใส่ "ไม่ระบุ"
         all_df["ปี"] = all_df["ปี"].replace("", "ไม่ระบุ")
 
     # ---------------------------------------------
@@ -586,20 +610,18 @@ elif st.session_state.app_state == 'dashboard':
     else:
         filtered_all_df = all_df[all_df["ปี"] == selected_year].copy()
 
-    # --- ส่วนที่เพิ่มใหม่: จัดกลุ่ม SPP ให้เป็นหมวดเดียวกัน ---
+    # จัดกลุ่ม SPP ให้เป็นหมวดเดียวกัน
     def group_project_category(name):
         name_str = str(name).strip()
         if name_str.upper().startswith("SPP"):
-            return "SPP" # ดึงทุกอย่างที่ขึ้นต้นด้วย SPP มารวมในชื่อนี้
+            return "SPP" 
         return name_str
 
     filtered_all_df["หมวดงาน_Dropdown"] = filtered_all_df["โครงการหลัก"].apply(group_project_category)
-    # ----------------------------------------------------
 
     def generate_dynamic_summary(df):
         if df.empty: return pd.DataFrame()
         
-        # เปลี่ยนการ Group By จาก 'โครงการหลัก' เป็น 'หมวดงาน_Dropdown'
         summary = df.groupby('หมวดงาน_Dropdown').agg({
             'ชื่องาน': 'count',
             'สถานะ': lambda x: (x == '✅ แล้วเสร็จ').sum()
@@ -617,7 +639,6 @@ elif st.session_state.app_state == 'dashboard':
         if orig_sum is not None and not orig_sum.empty and 'โครงการ' in orig_sum.columns:
             notes_dict = dict(zip(orig_sum['โครงการ'], orig_sum['หมายเหตุ']))
             
-            # สร้างคำอธิบายสำหรับกลุ่ม SPP โดยดึงชื่อโครงการย่อยมาต่อกัน
             def get_note(proj):
                 if proj == "SPP":
                     spp_list = df[df["หมวดงาน_Dropdown"] == "SPP"]["โครงการหลัก"].unique()
@@ -696,16 +717,11 @@ elif st.session_state.app_state == 'dashboard':
     else:
         st.markdown(f"## 🔎 เจาะลึกรายละเอียดงาน: <span style='color:#3730A3;'>{selected_main_proj}</span>", unsafe_allow_html=True)
         
-        # เปลี่ยนมาใช้การกรองจากคอลัมน์ หมวดงาน_Dropdown แทน
         detail_df = filtered_all_df[filtered_all_df["หมวดงาน_Dropdown"] == selected_main_proj].copy()
 
         if detail_df.empty:
             st.info(f"ไม่พบข้อมูลย่อยของ '{selected_main_proj}'")
         else:
-            # เอาบรรทัด detail_df["โครงการหลัก"] = selected_main_proj ออก
-            # เพื่อให้ตารางด้านล่างยังคงแสดงชื่อโปรเจกต์ย่อย (เช่น SPP (SCOD 70)) ได้อย่างชัดเจน
-            pass 
-
             pie_data = detail_df["สถานะ"].value_counts().reset_index()
             pie_data.columns = ["Status", "Count"]
 
