@@ -293,8 +293,17 @@ def get_all_excel_data(file_bytes):
             
             task_clean = task_str.replace(" ", "")
             proj_clean = current_project.replace(" ", "")
-            if task_clean in ["รวม", "รวมทั้งสิ้น", "ยอดรวม", "รวมทั้งหมด"] or proj_clean in ["รวม", "รวมทั้งสิ้น", "ยอดรวม"]:
+            
+            # --- ตัดบรรทัดที่เป็น "หัวตาราง" และ "ผลรวม" ออก เพื่อไม่ให้นับเป็น 1 งาน ---
+            ignore_words = [
+                "รวม", "รวมทั้งสิ้น", "ยอดรวม", "รวมทั้งหมด", 
+                "โครงการ", "ประเภทงาน", "หมวดงาน", 
+                "ชื่องาน", "ชื่อโครงการย่อย", "รายละเอียดงาน", "รายการ", "ลำดับ"
+            ]
+            
+            if task_clean in ignore_words or proj_clean in ignore_words:
                 continue
+            # -----------------------------------------------------------------
             
             year_suffix = extract_year_from_text(current_project)
             if not year_suffix:
