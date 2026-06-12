@@ -132,6 +132,50 @@ html, body, [class*="css"]  {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+/* === [แก้ไขใหม่] CSS สำหรับปุ่มเปิดคู่มือสไตล์ Liquid Glassmorphism === */
+.pdf-button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 12px 24px;
+    font-size: 15px;
+    color: #334155 !important;
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    text-decoration: none;
+    border-radius: 14px;
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 4px 15px rgba(31, 38, 135, 0.07);
+    font-weight: 600;
+    margin-bottom: 20px;
+    letter-spacing: 0.5px;
+}
+.pdf-button:hover {
+    background: rgba(255, 255, 255, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(31, 38, 135, 0.15);
+    color: #0F172A !important;
+}
+
+/* ปรับแต่งปุ่มคู่มือเมื่ออยู่ใน Sidebar หน้ามืด */
+[data-testid="stSidebar"] .pdf-button {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #E2E8F0 !important;
+    box-shadow: none;
+}
+[data-testid="stSidebar"] .pdf-button:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #FFFFFF !important;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -242,7 +286,6 @@ def get_all_excel_data(file_bytes):
                         month_cols[c] = val_str
                         month_row = r
 
-        # --- ระบบสแกนหา "ปี" จากหัวตาราง Excel (แถวเหนือเดือน) ---
         year_mapping = {}
         if month_cols:
             for check_r in range(month_row - 1, 0, -1):
@@ -263,7 +306,6 @@ def get_all_excel_data(file_bytes):
                 if has_year_in_this_row:
                     year_mapping = temp_mapping
                     break 
-        # -----------------------------------------------------------
 
         if "โครงการ" not in col_map: continue
         
@@ -294,7 +336,6 @@ def get_all_excel_data(file_bytes):
             task_clean = task_str.replace(" ", "")
             proj_clean = current_project.replace(" ", "")
             
-            # --- ตัดบรรทัดที่เป็น "หัวตาราง" และ "ผลรวม" ออก เพื่อไม่ให้นับเป็น 1 งาน ---
             ignore_words = [
                 "รวม", "รวมทั้งสิ้น", "ยอดรวม", "รวมทั้งหมด", 
                 "โครงการ", "ประเภทงาน", "หมวดงาน", 
@@ -303,7 +344,6 @@ def get_all_excel_data(file_bytes):
             
             if task_clean in ignore_words or proj_clean in ignore_words:
                 continue
-            # -----------------------------------------------------------------
             
             year_suffix = extract_year_from_text(current_project)
             if not year_suffix:
@@ -545,6 +585,15 @@ if st.session_state.app_state == 'connect':
         </div>
         """, unsafe_allow_html=True)
         
+        # ปุ่มคู่มือแบบ Liquid Glass (หน้า Connect)
+        st.markdown("""
+        <div style="display: flex; justify-content: center;">
+            <a href="/app/static/manual.pdf" target="_blank" class="pdf-button" style="width: auto;">
+                📖 เปิดหน้าคู่มือการใช้งาน (PDF)
+            </a>
+        </div>
+        """, unsafe_allow_html=True)
+        
         url_input = st.text_input("🔗 วางลิงก์ Google Sheets (Private) ที่นี่:", placeholder="https://docs.google.com/spreadsheets/d/...")
         
         if st.button("🚀 โหลดข้อมูล", use_container_width=True):
@@ -574,7 +623,6 @@ if st.session_state.app_state == 'connect':
 elif st.session_state.app_state == 'dashboard':
     all_df = st.session_state.all_df.copy()
 
-    # --- ดึง 'ปี' โดยให้ความสำคัญกับ "ชื่อชีต" เป็นอันดับแรก ---
     if "ปี" not in all_df.columns:
         all_df["ปี"] = all_df["แหล่งที่มา (ชีต)"].apply(extract_year_from_text)
         mask_empty = all_df["ปี"] == ""
@@ -584,6 +632,14 @@ elif st.session_state.app_state == 'dashboard':
     # ---------------------------------------------
     # SIDEBAR
     # ---------------------------------------------
+    
+    # ปุ่มคู่มือแบบ Dark Glass (แถบ Sidebar)
+    st.sidebar.markdown("""
+        <a href="/app/static/manual.pdf" target="_blank" class="pdf-button" style="width: 100%; box-sizing: border-box;">
+            📖 คู่มือการใช้งาน (PDF)
+        </a>
+    """, unsafe_allow_html=True)
+    
     st.sidebar.markdown("### ⚙️ การจัดการข้อมูล")
     
     if st.sidebar.button("🔄 ดึงข้อมูลล่าสุด", type="primary", use_container_width=True):
@@ -619,7 +675,6 @@ elif st.session_state.app_state == 'dashboard':
     else:
         filtered_all_df = all_df[all_df["ปี"] == selected_year].copy()
 
-    # จัดกลุ่ม SPP ให้เป็นหมวดเดียวกัน
     def group_project_category(name):
         name_str = str(name).strip()
         if name_str.upper().startswith("SPP"):
