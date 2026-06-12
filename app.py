@@ -19,6 +19,15 @@ st.set_page_config(
 )
 
 # ==================================================
+# โหลดไฟล์ PDF เตรียมไว้ล่วงหน้า (อ่านจากโฟลเดอร์หลัก)
+# ==================================================
+try:
+    with open("manual.pdf", "rb") as pdf_file:
+        pdf_bytes = pdf_file.read()
+except FileNotFoundError:
+    pdf_bytes = b"" # ป้องกันแอปพังถ้าหาไฟล์ไม่เจอ
+
+# ==================================================
 # SESSION STATE INITIALIZATION
 # ==================================================
 if 'app_state' not in st.session_state:
@@ -31,7 +40,7 @@ if 'gsheet_url' not in st.session_state:
     st.session_state.gsheet_url = ""
 
 # ==================================================
-# CSS GLOBAL
+# CSS GLOBAL (แปลงโฉมปุ่มดาวน์โหลดของ Streamlit ให้เป็นสไตล์ Glass)
 # ==================================================
 st.markdown("""
 <style>
@@ -133,48 +142,59 @@ html, body, [class*="css"]  {
 ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
 
-/* === [แก้ไขใหม่] CSS สำหรับปุ่มเปิดคู่มือสไตล์ Liquid Glassmorphism === */
-.pdf-button {
+/* === ปรับแต่งปุ่ม st.download_button ให้เป็น Liquid Glass === */
+div[data-testid="stDownloadButton"] {
     display: flex;
     justify-content: center;
-    align-items: center;
-    padding: 12px 24px;
-    font-size: 15px;
-    color: #334155 !important;
-    background: rgba(255, 255, 255, 0.4);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    border-right: 1px solid rgba(255, 255, 255, 0.2);
-    text-decoration: none;
-    border-radius: 14px;
-    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-    box-shadow: 0 4px 15px rgba(31, 38, 135, 0.07);
-    font-weight: 600;
+    width: 100%;
     margin-bottom: 20px;
-    letter-spacing: 0.5px;
 }
-.pdf-button:hover {
-    background: rgba(255, 255, 255, 0.65);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(31, 38, 135, 0.15);
+div[data-testid="stDownloadButton"] button {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    padding: 12px 24px !important;
+    font-size: 16px !important;
+    color: #334155 !important;
+    background: rgba(255, 255, 255, 0.4) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-radius: 14px !important;
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    box-shadow: 0 4px 15px rgba(31, 38, 135, 0.07) !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.5px !important;
+}
+div[data-testid="stDownloadButton"] button:hover {
+    background: rgba(255, 255, 255, 0.65) !important;
+    border: 1px solid rgba(255, 255, 255, 0.8) !important;
+    transform: translateY(-3px) !important;
+    box-shadow: 0 8px 25px rgba(31, 38, 135, 0.15) !important;
     color: #0F172A !important;
 }
-
-/* ปรับแต่งปุ่มคู่มือเมื่ออยู่ใน Sidebar หน้ามืด */
-[data-testid="stSidebar"] .pdf-button {
-    background: rgba(255, 255, 255, 0.07);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: #E2E8F0 !important;
-    box-shadow: none;
+div[data-testid="stDownloadButton"] button p {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    margin: 0 !important;
+    color: inherit !important;
 }
-[data-testid="stSidebar"] .pdf-button:hover {
-    background: rgba(255, 255, 255, 0.15);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+
+/* === ปรับแต่งปุ่มเมื่ออยู่ในแถบ Sidebar เป็น Dark Glass === */
+[data-testid="stSidebar"] div[data-testid="stDownloadButton"] button {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    color: #E2E8F0 !important;
+    box-shadow: none !important;
+    width: 100% !important;
+}
+[data-testid="stSidebar"] div[data-testid="stDownloadButton"] button:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
     color: #FFFFFF !important;
-    box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.1) !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -585,14 +605,15 @@ if st.session_state.app_state == 'connect':
         </div>
         """, unsafe_allow_html=True)
         
-        # ปุ่มคู่มือแบบ Liquid Glass (หน้า Connect)
-        st.markdown("""
-        <div style="display: flex; justify-content: center;">
-            <a href="/app/static/manual.pdf" target="_blank" class="pdf-button" style="width: auto;">
-                📖 เปิดหน้าคู่มือการใช้งาน (PDF)
-            </a>
-        </div>
-        """, unsafe_allow_html=True)
+        # === ปุ่มดาวน์โหลดคู่มือ Native ของ Streamlit (หน้า Connect) ===
+        if pdf_bytes:
+            st.download_button(
+                label="📖 เปิด / ดาวน์โหลดหน้าคู่มือการใช้งาน (PDF)",
+                data=pdf_bytes,
+                file_name="manual.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
         
         url_input = st.text_input("🔗 วางลิงก์ Google Sheets (Private) ที่นี่:", placeholder="https://docs.google.com/spreadsheets/d/...")
         
@@ -633,12 +654,15 @@ elif st.session_state.app_state == 'dashboard':
     # SIDEBAR
     # ---------------------------------------------
     
-    # ปุ่มคู่มือแบบ Dark Glass (แถบ Sidebar)
-    st.sidebar.markdown("""
-        <a href="/app/static/manual.pdf" target="_blank" class="pdf-button" style="width: 100%; box-sizing: border-box;">
-            📖 คู่มือการใช้งาน (PDF)
-        </a>
-    """, unsafe_allow_html=True)
+    # === ปุ่มดาวน์โหลดคู่มือ Native ของ Streamlit (แถบ Sidebar) ===
+    if pdf_bytes:
+        st.sidebar.download_button(
+            label="📖 คู่มือการใช้งาน (PDF)",
+            data=pdf_bytes,
+            file_name="manual.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
     
     st.sidebar.markdown("### ⚙️ การจัดการข้อมูล")
     
