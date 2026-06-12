@@ -40,7 +40,7 @@ if 'gsheet_url' not in st.session_state:
     st.session_state.gsheet_url = ""
 
 # ==================================================
-# CSS GLOBAL (แปลงโฉมปุ่มดาวน์โหลดของ Streamlit ให้เป็นสไตล์ Glass)
+# CSS GLOBAL
 # ==================================================
 st.markdown("""
 <style>
@@ -142,7 +142,7 @@ html, body, [class*="css"]  {
 ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
 
-/* === ปรับแต่งปุ่ม st.download_button ให้เป็น Liquid Glass === */
+/* === ปรับแต่งปุ่ม st.download_button ในหน้าหลัก (Connect) === */
 div[data-testid="stDownloadButton"] {
     display: flex;
     justify-content: center;
@@ -182,19 +182,20 @@ div[data-testid="stDownloadButton"] button p {
     color: inherit !important;
 }
 
-/* === ปรับแต่งปุ่มเมื่ออยู่ในแถบ Sidebar เป็น Dark Glass === */
+/* === ปรับแต่งปุ่มเมื่ออยู่ในแถบ Sidebar (สีสว่างเห็นชัดเจน) === */
 [data-testid="stSidebar"] div[data-testid="stDownloadButton"] button {
-    background: rgba(255, 255, 255, 0.07) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    color: #E2E8F0 !important;
-    box-shadow: none !important;
+    background: #FFFFFF !important;
+    border: 1px solid #CBD5E1 !important;
+    color: #1E293B !important; /* เปลี่ยนเป็นสีตัวหนังสือเข้ม */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05) !important;
     width: 100% !important;
 }
 [data-testid="stSidebar"] div[data-testid="stDownloadButton"] button:hover {
-    background: rgba(255, 255, 255, 0.15) !important;
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    color: #FFFFFF !important;
-    box-shadow: 0 0 15px rgba(255, 255, 255, 0.1) !important;
+    background: #F8FAFC !important;
+    border: 1px solid #0284C7 !important;
+    color: #0284C7 !important; /* เปลี่ยนเป็นสีฟ้า PEA เวลาเอาเมาส์ชี้ */
+    box-shadow: 0 6px 12px rgba(2, 132, 199, 0.1) !important;
+    transform: translateY(-2px) !important;
 }
 </style>
 """, unsafe_allow_html=True)
